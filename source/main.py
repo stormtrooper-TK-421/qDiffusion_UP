@@ -579,7 +579,14 @@ def launch(url):
     sys.exit(app.exec())
 
 def ready():
-    import qml.qml_rc
+    import importlib
+
+    if "qml.qml_rc" in sys.modules:
+        import qml.qml_rc
+        importlib.reload(qml.qml_rc)
+    else:
+        import qml.qml_rc
+
     qmlRegisterSingletonType(QUrl("qrc:/Common.qml"), "gui", 1, 0, "COMMON")
 
 def start(engine, app):

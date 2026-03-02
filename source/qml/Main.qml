@@ -9,8 +9,8 @@ import "style"
 import "components"
 
 FocusReleaser {
-    property var window
-    property var spinner
+    property ApplicationWindow window
+    property Image spinner
     anchors.fill: parent
     layer.enabled: true
     opacity: 0.0
