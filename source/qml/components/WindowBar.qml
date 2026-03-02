@@ -199,13 +199,13 @@ SMenuBar {
         SMenuItem {
             text: root.tr("Open Guide")
             onPressed: {
-                GUI.openLink("https://github.com/arenasys/qDiffusion/wiki/Guide")
+                GUI.openLink("https://github.com/stormtrooper-TK-421/qDiffusion_UP/wiki/Guide")
             }
         }
         SMenuItem {
             text: root.tr("Report Issue")
             onPressed: {
-                GUI.openLink("https://github.com/arenasys/qDiffusion/issues/new?assignees=&labels=&projects=&template=bug_report.md&title=")
+                GUI.openLink("https://github.com/stormtrooper-TK-421/qDiffusion_UP/issues/new?assignees=&labels=&projects=&template=bug_report.md&title=")
             }
         }
         SMenuSeparator {}
@@ -241,7 +241,7 @@ SMenuBar {
         SMenuItem {
             text: root.tr("About")
             onPressed: {
-                GUI.openLink("https://github.com/arenasys/qDiffusion")
+                GUI.openLink("https://github.com/stormtrooper-TK-421/qDiffusion_UP")
             }
         }
     }

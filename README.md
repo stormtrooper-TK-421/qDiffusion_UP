@@ -1,15 +1,15 @@
 ## Qt GUI for Stable diffusion
 --------
-Built from the ground up alongside [sd-inference-server](https://github.com/arenasys/sd-inference-server), the backend for this GUI.
-![example](https://github.com/arenasys/qDiffusion/raw/master/source/screenshot.png)
+Built from the ground up alongside [sd-inference-server](https://github.com/stormtrooper-TK-421/sd-inference-server), the backend for this GUI.
+![example](https://github.com/stormtrooper-TK-421/qDiffusion_UP/raw/master/source/screenshot.png)
 \*new\* Discord: [Arena Systems](https://discord.gg/WdjKqUGefU).
 
 ## Getting started
 ### Install
-1. [Download](https://github.com/arenasys/qDiffusion/archive/refs/heads/master.zip) this repo as a zip and extract it.
+1. [Download](https://github.com/stormtrooper-TK-421/qDiffusion_UP/archive/refs/heads/master.zip) this repo as a zip and extract it.
 2. Run `qDiffusion.exe` (or `bash ./source/start.sh` on Linux, `sh ./source/start-mac.sh` on Mac).
 	- First time users will need to wait for Python and PySide6 to be downloaded.
-	- AMD Ubuntu users need to follow: [Install ROCm](https://github.com/arenasys/qDiffusion/wiki/Install#ubuntu-22).
+	- AMD Ubuntu users need to follow: [Install ROCm](https://github.com/stormtrooper-TK-421/qDiffusion_UP/wiki/Install#ubuntu-22).
 3. Select a mode. `Remote`, `Nvidia` and `AMD` are available.
 	- `Remote` needs `~500MB` of space, `NVIDIA`/`AMD` need `~5-10GB`.
 	- Choose `Remote` if you only want to generate using cloud/server instances.
@@ -19,14 +19,14 @@ Built from the ground up alongside [sd-inference-server](https://github.com/aren
 	- Output is displayed on screen, fatal errors are written to `crash.log`.
 5. Done. NOTE: Update using `File->Update` or `Settings->Program->Update`.
 
-Information is available on the [Wiki](https://github.com/arenasys/qDiffusion/wiki/Guide).
+Information is available on the [Wiki](https://github.com/stormtrooper-TK-421/qDiffusion_UP/wiki/Guide).
 
 ### Remote
-Notebooks for running a remote instance are available: [Colab](https://colab.research.google.com/github/arenasys/qDiffusion/blob/master/remote_colab.ipynb), [Kaggle](https://www.kaggle.com/code/arenasys/qdiffusion), [SageMaker](https://studiolab.sagemaker.aws/import/github/arenasys/qDiffusion/blob/master/remote_sagemaker.ipynb)
+Notebooks for running a remote instance are available: [Colab](https://colab.research.google.com/github/stormtrooper-TK-421/qDiffusion_UP/blob/master/remote_colab.ipynb), [Kaggle](https://www.kaggle.com/code/arenasys/qdiffusion), [SageMaker](https://studiolab.sagemaker.aws/import/github/stormtrooper-TK-421/qDiffusion_UP/blob/master/remote_sagemaker.ipynb)
 
 0. [Install](#install) qDiffusion, this runs locally on your machine and connects to the backend server.
 	- If using Mobile then skip this step.
-1. Open the [Colab](https://colab.research.google.com/github/arenasys/qDiffusion/blob/master/remote_colab.ipynb) notebook. Requires a Google account.
+1. Open the [Colab](https://colab.research.google.com/github/stormtrooper-TK-421/qDiffusion_UP/blob/master/remote_colab.ipynb) notebook. Requires a Google account.
 2. Press the play button in the top left. Colab may take some time to configure a machine for you.
 3. Accept or reject the Google Drive permission popup.
 	- Accepting will mean models are saved/loaded from `qDiffusion/models` on your drive.
@@ -34,7 +34,7 @@ Notebooks for running a remote instance are available: [Colab](https://colab.res
 4. Wait for the requirements to be downloaded and the server to start (scroll down).
 5. Click the `DESKTOP` link to start qDiffusion and/or connect.
    	- Alternatively copy the Endpoint and Password to qDiffusion under `Settings->Remote`, press Connect.
-6. Done. See [Downloads](https://github.com/arenasys/qDiffusion/wiki/Guide#downloading) for how to get models onto the instance.
+6. Done. See [Downloads](https://github.com/stormtrooper-TK-421/qDiffusion_UP/wiki/Guide#downloading) for how to get models onto the instance.
 	- Remaking the instance is done via `Runtime->Disconnect and delete runtime`, then close the tab and start from Step 1.
 	- HTTP 530 means the cloudflare tunnel is not working. Wait for an update, or check [Here](https://www.cloudflarestatus.com/).
 	- Runtime disconnects due to "disallowed code" can happen occasionally, often when merging. For now these don't appear to be targeted at qDiffusion specifically.

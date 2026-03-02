@@ -11,7 +11,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-DEFAULT_URL = "https://github.com/stromtroopertk421/sd-inference-server"
+DEFAULT_URL = "https://github.com/stormtrooper-TK-421/sd-inference-server"
 ALLOWED_URLS = {DEFAULT_URL}
 DEFAULT_DEST = ".third_party/sd-inference-server"
 STATE_FILE = ".third_party/sd_infer_state.json"
