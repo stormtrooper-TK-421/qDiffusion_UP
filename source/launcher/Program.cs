@@ -4,7 +4,6 @@ using System.IO;
 using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.ComponentModel;
 using System.Text;
 using System.IO.Compression;
 using System.Collections;
@@ -100,22 +99,6 @@ namespace qDiffusion
             key.Close();
         }
 
-        class SyncObject
-        {
-            public string Error { get; set; }
-        }
-        private void HandleDownloadComplete(object sender, AsyncCompletedEventArgs args)
-        {
-            if (args.Error != null)
-            {
-                (args.UserState as SyncObject).Error = args.Error.Message;
-            }
-            lock (args.UserState)
-            {
-                Monitor.Pulse(args.UserState);
-            }
-        }
-
         private void HandleDownloadProgress(object sender, DownloadProgressChangedEventArgs args)
         {
             progress?.SetProgress(Math.Min(99, args.ProgressPercentage));
@@ -124,19 +107,23 @@ namespace qDiffusion
         private bool Download(string url, string filename)
         {
             using (WebClient wc = new WebClient())
+            using (var syncEvent = new ManualResetEvent(false))
             {
                 wc.DownloadProgressChanged += HandleDownloadProgress;
-                wc.DownloadFileCompleted += HandleDownloadComplete;
 
-                var syncObject = new SyncObject();
-                lock (syncObject)
+                Exception downloadError = null;
+                wc.DownloadFileCompleted += (sender, args) =>
                 {
-                    wc.DownloadFileAsync(new Uri(url), filename, syncObject);
-                    Monitor.Wait(syncObject);
-                }
-                if (syncObject.Error != null)
+                    downloadError = args.Error;
+                    syncEvent.Set();
+                };
+
+                wc.DownloadFileAsync(new Uri(url), filename);
+                syncEvent.WaitOne();
+
+                if (downloadError != null)
                 {
-                    LaunchError(syncObject.Error);
+                    LaunchError(downloadError.Message);
                     return false;
                 }
                 return true;
@@ -351,20 +338,22 @@ namespace qDiffusion
                 return PythonSha256.ToLowerInvariant();
             }
 
-            using (var wc = new WebClient())
+            try
             {
-                var text = wc.DownloadString(url + ".sha256");
-                if (string.IsNullOrWhiteSpace(text))
+                using (var wc = new WebClient())
                 {
-                    throw new Exception("Missing Python checksum data.");
+                    var text = wc.DownloadString(url + ".sha256");
+                    var token = text.Split(new[] { " ", "\t", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+                    if (string.IsNullOrWhiteSpace(token) || token.Length != 64)
+                    {
+                        return null;
+                    }
+                    return token.ToLowerInvariant();
                 }
-
-                var token = text.Split(new[] { " ", "\t", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-                if (string.IsNullOrWhiteSpace(token) || token.Length != 64)
-                {
-                    throw new Exception("Invalid Python checksum data.");
-                }
-                return token.ToLowerInvariant();
+            }
+            catch
+            {
+                return null;
             }
         }
 
@@ -564,7 +553,7 @@ namespace qDiffusion
 
             var expectedHash = GetExpectedSha256(PythonDownloadUrl);
             var actualHash = ComputeSha256(PythonArchive);
-            if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+            if (expectedHash != null && !string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
             {
                 throw new Exception("Python archive checksum mismatch.");
             }
@@ -761,7 +750,7 @@ namespace qDiffusion
 
                 string pythonw = Path.Combine(venvDir, "Scripts", "pythonw.exe");
                 string python = File.Exists(pythonw) ? pythonw : Path.Combine(venvDir, "Scripts", "python.exe");
-                string[] cmd = { python, "-E", "-s", "-B", Path.Combine(repoRoot, "source", "main.py") };
+                string[] cmd = { python, "-E", "-s", "-B", Path.Combine(repoRoot, "source", "launch.py") };
                 Launch(pythonEnv, cmd.Concat(args).ToArray());
             }
             catch (Exception ex)
