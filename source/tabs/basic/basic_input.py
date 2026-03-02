@@ -1,6 +1,6 @@
-from PyQt5.QtCore import pyqtProperty, pyqtSlot, pyqtSignal, QObject, QSize, QUrl, QMimeData, QByteArray, Qt, QRect, QRectF, QPointF, QSizeF
-from PyQt5.QtGui import QImage, QDrag, QVector3D, QColor, QPainter, QBrush, QPen, QPolygonF
-from PyQt5.QtWidgets import QApplication
+from PySide6.QtCore import Property, Slot, Signal, QObject, QSize, QUrl, QMimeData, QByteArray, Qt, QRect, QRectF, QPointF, QSizeF
+from PySide6.QtGui import QImage, QDrag, QVector3D, QColor, QPainter, QBrush, QPen, QPolygonF
+from PySide6.QtWidgets import QApplication
 from enum import Enum
 
 import parameters
@@ -19,12 +19,12 @@ MIME_BASIC_INPUT = "application/x-qd-basic-input"
 INPUT_ID = 1
 
 class BasicInput(QObject):
-    updated = pyqtSignal()
-    linkedUpdated = pyqtSignal()
-    extentUpdated = pyqtSignal()
-    folderUpdated = pyqtSignal()
-    posesUpdated = pyqtSignal()
-    relativePosingUpdated = pyqtSignal()
+    updated = Signal()
+    linkedUpdated = Signal()
+    extentUpdated = Signal()
+    folderUpdated = Signal()
+    posesUpdated = Signal()
+    relativePosingUpdated = Signal()
     def __init__(self, basic, image=QImage(), role=InputRole.IMAGE):
         global INPUT_ID
         super().__init__(basic)
@@ -148,7 +148,7 @@ class BasicInput(QObject):
         if self.isPose:
             self.drawPose()
 
-    @pyqtSlot(QUrl)
+    @Slot(QUrl)
     def saveImage(self, file):
         if self.isPose:
             return self.savePose(file)
@@ -172,7 +172,7 @@ class BasicInput(QObject):
             self._linked.updateLinked()
         self.updateLinked()
 
-    @pyqtSlot()
+    @Slot()
     def updateLinked(self):
         self.updateImage()
         if self.isTile:
@@ -183,7 +183,7 @@ class BasicInput(QObject):
             self.updated.emit()
         self.linkedUpdated.emit()
     
-    @pyqtProperty(int, notify=updated)
+    @Property(int, notify=updated)
     def role(self):
         return self._role.value
 
@@ -198,23 +198,23 @@ class BasicInput(QObject):
         self.updateImage()
         self.parent().updated.emit()
 
-    @pyqtProperty(QImage, notify=updated)
+    @Property(QImage, notify=updated)
     def image(self):
         return self._image
     
-    @pyqtProperty(int, notify=updated)
+    @Property(int, notify=updated)
     def width(self):
         if not self._file.isNull():
             return self._file.width()
         return self._image.width()
     
-    @pyqtProperty(int, notify=updated)
+    @Property(int, notify=updated)
     def height(self):
         if not self._file.isNull():
             return self._file.height()
         return self._image.height()
     
-    @pyqtProperty(int, notify=updated)
+    @Property(int, notify=updated)
     def dropWidth(self):
         if not self._originalFile.isNull():
             return self._originalFile.width()
@@ -222,7 +222,7 @@ class BasicInput(QObject):
             return self._original.width()
         return self._image.width()
     
-    @pyqtProperty(int, notify=updated)
+    @Property(int, notify=updated)
     def dropHeight(self):
         if not self._originalFile.isNull():
             return self._originalFile.height()
@@ -230,7 +230,7 @@ class BasicInput(QObject):
             return self._original.height()
         return self._image.height()
     
-    @pyqtProperty(float, notify=updated)
+    @Property(float, notify=updated)
     def offsetX(self):
         return self._offset_x
     
@@ -239,7 +239,7 @@ class BasicInput(QObject):
         self._offset_x = max(-1.0, min(1.0, offset))
         self.updateImage()
 
-    @pyqtProperty(float, notify=updated)
+    @Property(float, notify=updated)
     def offsetY(self):
         return self._offset_y
     
@@ -248,7 +248,7 @@ class BasicInput(QObject):
         self._offset_y = max(-1.0, min(1.0, offset))
         self.updateImage()
 
-    @pyqtProperty(float, notify=updated)
+    @Property(float, notify=updated)
     def scale(self):
         return self._scale
     
@@ -257,27 +257,27 @@ class BasicInput(QObject):
         self._scale = max(1.0, scale)
         self.updateImage()
 
-    @pyqtProperty(str, notify=updated)
+    @Property(str, notify=updated)
     def warning(self):
         return self._warning
     
-    @pyqtProperty(QImage, notify=updated)
+    @Property(QImage, notify=updated)
     def original(self):
         return self._original
     
-    @pyqtProperty(QImage, notify=updated)
+    @Property(QImage, notify=updated)
     def originalCrop(self):
         return self._originalCrop or self._original
 
-    @pyqtProperty(int, notify=updated)
+    @Property(int, notify=updated)
     def originalWidth(self):
         return self._original.width()
     
-    @pyqtProperty(int, notify=updated)
+    @Property(int, notify=updated)
     def originalHeight(self):
         return self._original.height()
     
-    @pyqtProperty(float, notify=updated)
+    @Property(float, notify=updated)
     def proportionX(self):
         if not self._originalCrop:
             return 0
@@ -286,7 +286,7 @@ class BasicInput(QObject):
             return 0
         return self._original.width()/diff
     
-    @pyqtProperty(float, notify=updated)
+    @Property(float, notify=updated)
     def proportionY(self):
         if not self._originalCrop:
             return 0
@@ -295,27 +295,27 @@ class BasicInput(QObject):
             return 0
         return self._original.height()/diff
 
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def empty(self):
         return self._image.isNull()
     
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def hasSource(self):
         return (not self._image.isNull()) or (self._folder != "")
     
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def isTile(self):
         return self._role == InputRole.CONTROL and self._control_mode == "Tile"
     
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def isPose(self):
         return self._role == InputRole.CONTROL and self._control_mode == "Pose" and self._control_settings.get("preprocessor") == "Pose"
     
-    @pyqtProperty(list, notify=posesUpdated)
+    @Property(list, notify=posesUpdated)
     def poses(self):
         return self._poses
     
-    @pyqtProperty(bool, notify=relativePosingUpdated)
+    @Property(bool, notify=relativePosingUpdated)
     def relativePosing(self):
         return self._poseRelative
     
@@ -383,11 +383,11 @@ class BasicInput(QObject):
             scaled += [nodes]
         return scaled
     
-    @pyqtSlot()
+    @Slot()
     def clearRedoPose(self):
         self._poseRedo = []
 
-    @pyqtSlot()
+    @Slot()
     def undoPose(self):
         if len(self._poseUndo) < 2:
             return
@@ -397,7 +397,7 @@ class BasicInput(QObject):
         self.setRawPose(last)
         self._poseRedo += [current]
 
-    @pyqtSlot()
+    @Slot()
     def redoPose(self):
         if len(self._poseRedo) < 1:
             return
@@ -406,7 +406,7 @@ class BasicInput(QObject):
         self._poseUndo += [last]
         self.setRawPose(last)
 
-    @pyqtSlot(QPointF)
+    @Slot(QPointF)
     def addPose(self, position):
         crop = self.getPoseCrop()
         size = QPointF(crop.width(), crop.height())
@@ -416,7 +416,7 @@ class BasicInput(QObject):
         self.posesUpdated.emit()
         self.drawPose()
 
-    @pyqtSlot()
+    @Slot()
     def cleanPoses(self):
         empty = []
         for pose in self._poses:
@@ -427,7 +427,7 @@ class BasicInput(QObject):
         self.posesUpdated.emit()
         self.drawPose()
     
-    @pyqtSlot()
+    @Slot()
     def drawPose(self):
         if not self._original or self._original.isNull():
             return
@@ -441,7 +441,7 @@ class BasicInput(QObject):
         self._image = Pose.drawPoses(self.getPose(), size, original, crop)
         self.resetDisplay()
 
-    @pyqtSlot(QUrl)
+    @Slot(QUrl)
     def savePose(self, file):
         file = file.toLocalFile()
         if not "." in file.rsplit(os.path.sep,1)[-1]:
@@ -477,13 +477,13 @@ class BasicInput(QObject):
 
             self.setPose(pose)
 
-    @pyqtProperty(QPointF, notify=updated)
+    @Property(QPointF, notify=updated)
     def poseSize(self):
         if not self._original:
             return QPointF(self.width, self.height)
         return QPointF(self._original.width(), self._original.height())
     
-    @pyqtProperty(QRectF, notify=updated)
+    @Property(QRectF, notify=updated)
     def poseCrop(self):
         if not self._original:
             return QRectF(0, 0, self.width, self.height)
@@ -491,35 +491,35 @@ class BasicInput(QObject):
             return QRectF(0, 0, self._original.width(), self._original.height())
         return self._originalCropInfo
 
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def canPaint(self):
         return self._role in {InputRole.IMAGE, InputRole.MASK, InputRole.SUBPROMPT} or (self._role == InputRole.CONTROL and not self._control_mode in {"Tile", "QR"})
     
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def canLoad(self):
         return self._role in {InputRole.IMAGE, InputRole.MASK, InputRole.SEGMENTATION} or (self._role == InputRole.CONTROL and self._control_mode != "Tile")
     
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def isMask(self):
         return self._role in {InputRole.MASK, InputRole.SUBPROMPT} or (self._role == InputRole.CONTROL and self._control_mode == "Inpaint")
     
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def isOverlay(self):
         return self._role in {InputRole.MASK, InputRole.SUBPROMPT} or (self._role == InputRole.CONTROL and self._control_mode in {"Inpaint", "Tile"})
 
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def isCanvas(self):
         return self._role in {InputRole.IMAGE} or (self._role == InputRole.CONTROL and self._control_mode != "Tile")
 
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def hasSettings(self):
         return self._role in {InputRole.CONTROL, InputRole.SEGMENTATION}
     
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def canAnnotate(self):
         return self._role in {InputRole.CONTROL} and not self._control_mode in {"Inpaint", "Tile"}
     
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def showingArtifact(self):
         return self._display != None
     
@@ -528,63 +528,63 @@ class BasicInput(QObject):
             return InputRole.MASK
         return self._role
 
-    @pyqtProperty(bool, notify=linkedUpdated)
+    @Property(bool, notify=linkedUpdated)
     def linked(self):
         return self._linked != None
     
-    @pyqtProperty(bool, notify=linkedUpdated)
+    @Property(bool, notify=linkedUpdated)
     def linkedTo(self):
         i = self.basic._inputs.index(self) + 1
         if i >= len(self.basic._inputs):
             return False
         return self.basic._inputs[i]._linked != None
 
-    @pyqtProperty(QImage, notify=linkedUpdated)
+    @Property(QImage, notify=linkedUpdated)
     def linkedImage(self):
         if not self._linked:
             return QImage()
         return self._linked._image
     
-    @pyqtProperty(int, notify=linkedUpdated)
+    @Property(int, notify=linkedUpdated)
     def linkedWidth(self):
         if not self._linked or not self._linked._image.width():
             return int(self.basic.parameters.values.get("width"))
         return self._linked._image.width()
     
-    @pyqtProperty(int, notify=linkedUpdated)
+    @Property(int, notify=linkedUpdated)
     def linkedHeight(self):
         if not self._linked or not self._linked._image.height():
             return int(self.basic.parameters.values.get("height"))
         return self._linked._image.height()
         
-    @pyqtProperty(str, notify=updated)
+    @Property(str, notify=updated)
     def size(self):
         if self._image.isNull():
             return ""
         o = self._originalCrop or self._original
         return f"{o.width()}x{o.height()}"
     
-    @pyqtProperty(QRect, notify=extentUpdated)
+    @Property(QRect, notify=extentUpdated)
     def extent(self):
         return self._extent
     
-    @pyqtProperty(bool, notify=extentUpdated)
+    @Property(bool, notify=extentUpdated)
     def extentWarning(self):
         return self._extentWarning
     
-    @pyqtProperty(list, notify=extentUpdated)
+    @Property(list, notify=extentUpdated)
     def tiles(self):
         return self._tiles
     
-    @pyqtProperty(int, notify=extentUpdated)
+    @Property(int, notify=extentUpdated)
     def tile_size(self):
         return self._tile_size
     
-    @pyqtProperty(parameters.VariantMap, notify=updated)
+    @Property(parameters.VariantMap, notify=updated)
     def controlSettings(self):
         return self._control_settings
     
-    @pyqtSlot(str)
+    @Slot(str)
     def onControlSettingsUpdated(self, key):
         if key == "mode":
             value = self._control_settings.get("mode")
@@ -665,11 +665,11 @@ class BasicInput(QObject):
         if self.isTile:
             self.updateTiles()
 
-    @pyqtProperty(str, notify=updated)
+    @Property(str, notify=updated)
     def controlMode(self):
         return self._control_mode
     
-    @pyqtSlot()
+    @Slot()
     def annotate(self):
         if self.isPose:
             self._poseAnnotateInfo = self._originalCropInfo
@@ -694,11 +694,11 @@ class BasicInput(QObject):
     def getControlStop(self):
         return self._control_settings.get("stop")
     
-    @pyqtSlot()
+    @Slot()
     def resetAnnotation(self):
         self.setArtifacts({})
 
-    @pyqtProperty(str, notify=updated)
+    @Property(str, notify=updated)
     def segmentationModel(self):
         return self._segmentation_model
     
@@ -707,15 +707,15 @@ class BasicInput(QObject):
         self._segmentation_model = model
         self.updated.emit()
     
-    @pyqtProperty(list, notify=updated)
+    @Property(list, notify=updated)
     def segmentationModels(self):
         return self._segmentation_models
     
-    @pyqtProperty(list, notify=updated)
+    @Property(list, notify=updated)
     def segmentationPoints(self):
         return [QVector3D(p[0], p[1], p[2]) for p in self._segmentation_points]
     
-    @pyqtSlot()
+    @Slot()
     def syncSegmentationPoints(self):
         self.updated.emit()
 
@@ -733,7 +733,7 @@ class BasicInput(QObject):
 
         return args
     
-    @pyqtSlot()
+    @Slot()
     def resetSegmentation(self):
         self._segmentation_points = []
         self.warnSegmentation()
@@ -747,7 +747,7 @@ class BasicInput(QObject):
         else:
             self._warning = ""
 
-    @pyqtSlot(int, int, int, int)
+    @Slot(int, int, int, int)
     def moveSegmentationPoint(self, x, y, newX, newY):
         for i, p in enumerate(self._segmentation_points):
             if (p[0], p[1]) == (x,y):
@@ -756,13 +756,13 @@ class BasicInput(QObject):
             return
         self._segmentation_points[i] = (newX, newY, p[2])
 
-    @pyqtSlot(int, int, int)
+    @Slot(int, int, int)
     def addSegmentationPoint(self, x, y, label):
         self._segmentation_points += [(x,y,label)]
         self.warnSegmentation()
         self.updated.emit()
     
-    @pyqtSlot(int, int)
+    @Slot(int, int)
     def deleteSegmentationPoint(self, x, y):
         for i, p in enumerate(self._segmentation_points):
             if (p[0], p[1]) == (x,y):
@@ -782,17 +782,17 @@ class BasicInput(QObject):
             self._display = None
         self.updated.emit()
     
-    @pyqtProperty(QImage, notify=updated)
+    @Property(QImage, notify=updated)
     def display(self):
         if not self._display:
             return self._image
         return self._artifacts[self._display]
     
-    @pyqtProperty(str, notify=updated)
+    @Property(str, notify=updated)
     def displayName(self):
         return ["", "Image", "Mask", "Subprompts", "Control", "Segment"][self._role.value]
     
-    @pyqtProperty(str, notify=updated)
+    @Property(str, notify=updated)
     def displayIndex(self):
         if not self._artifacts:
             return ""
@@ -802,13 +802,13 @@ class BasicInput(QObject):
             idx = self._artifactNames.index(self._display)
             return f"{idx+2} of {len(self._artifactNames)+1}"
         
-    @pyqtProperty(QImage, notify=updated)
+    @Property(QImage, notify=updated)
     def displayFull(self):
         if not self._file.isNull():
             return self._file
         return self.display
 
-    @pyqtSlot()
+    @Slot()
     def nextDisplay(self):
         if self._currentFile:
             i = self._files.index(self._currentFile) + 1
@@ -828,7 +828,7 @@ class BasicInput(QObject):
                 self._display = None
         self.updated.emit()
     
-    @pyqtSlot()
+    @Slot()
     def prevDisplay(self):
         if self._currentFile:
             i = self._files.index(self._currentFile) - 1
@@ -848,11 +848,11 @@ class BasicInput(QObject):
                 self._display = None
         self.updated.emit()
 
-    @pyqtSlot()
+    @Slot()
     def resetDisplay(self):
         self.updated.emit()
 
-    @pyqtSlot()
+    @Slot()
     def resetAuxiliary(self, canvas = False):
         self._canvas = canvas
         if self._canvas and self.controlMode == "Scribble":
@@ -870,14 +870,14 @@ class BasicInput(QObject):
             out += [a]
         return out
 
-    @pyqtSlot(QUrl)
+    @Slot(QUrl)
     def setImageFile(self, path):
         self._image = QImage(path.toLocalFile())
         self._original = self._image.copy()
         self.resetAuxiliary()
         self.updateImage()
 
-    @pyqtSlot()
+    @Slot()
     def setImageCanvas(self):
         w,h = 0,0
         if self._linked:
@@ -893,7 +893,7 @@ class BasicInput(QObject):
         self.resetAuxiliary(canvas=True)
         self.updateImage()
 
-    @pyqtSlot(MimeData, int)
+    @Slot(MimeData, int)
     def setImageDrop(self, mimeData, index):
 
         mimeData = mimeData.mimeData
@@ -935,7 +935,7 @@ class BasicInput(QObject):
             self.resetAuxiliary()
             self.updateImage()
 
-    @pyqtSlot(QImage)
+    @Slot(QImage)
     def setImageData(self, data):
         self._image = data
 
@@ -943,7 +943,7 @@ class BasicInput(QObject):
         self.resetAuxiliary()
         self.updateImage()
 
-    @pyqtSlot(QImage, QImage, QImage)
+    @Slot(QImage, QImage, QImage)
     def setPaintedData(self, image, base, paint):
         self._image = image
         self._original = image
@@ -952,7 +952,7 @@ class BasicInput(QObject):
 
         self.updateImage()
 
-    @pyqtSlot()
+    @Slot()
     def resetPaint(self):
         self._base = QImage()
         self._paint = QImage()
@@ -1045,7 +1045,7 @@ class BasicInput(QObject):
         self.extentUpdated.emit()
         return
 
-    @pyqtSlot()
+    @Slot()
     def clearImage(self):
         self._image = QImage()
         self.updateImage()
@@ -1056,7 +1056,7 @@ class BasicInput(QObject):
         mimeData.setImageData(self._image)
         return mimeData
 
-    @pyqtSlot(int)
+    @Slot(int)
     def drag(self, index):
         if self._dragging:
             return
@@ -1066,23 +1066,23 @@ class BasicInput(QObject):
         drag.exec()
         self._dragging = False
 
-    @pyqtSlot(int)
+    @Slot(int)
     def copy(self, index):
         QApplication.clipboard().setMimeData(self.getMimeData(index))
 
-    @pyqtProperty(str, notify=folderUpdated)
+    @Property(str, notify=folderUpdated)
     def folder(self):
         return self._folder
     
-    @pyqtProperty(list, notify=folderUpdated)
+    @Property(list, notify=folderUpdated)
     def files(self):
         return self._files
     
-    @pyqtProperty(str, notify=folderUpdated)
+    @Property(str, notify=folderUpdated)
     def currentFile(self):
         return self._currentFile
     
-    @pyqtSlot(str)
+    @Slot(str)
     def setFolder(self, folder):
         folder = QUrl(folder).toLocalFile()
         files = glob.glob(os.path.join(folder, "*.png")) + glob.glob(os.path.join(folder, "*.jpg"))
@@ -1106,7 +1106,7 @@ class BasicInput(QObject):
     def getFilePath(self, file):
         return os.path.join(self._folder, file)
 
-    @pyqtSlot(str)
+    @Slot(str)
     def setFile(self, file):
         filePath = os.path.join(self._folder, file)
         if os.path.exists(filePath):

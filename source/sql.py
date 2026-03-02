@@ -4,12 +4,12 @@ from typing import *
 import time
 import threading
 
-from PyQt5.QtCore import pyqtProperty, pyqtSlot, pyqtSignal, Qt, QObject, QThread, QAbstractListModel, QByteArray, QModelIndex, QTimer, QVariant
-from PyQt5.QtSql import QSqlDatabase, QSqlQuery, QSqlDriver
-from PyQt5.QtQml import qmlRegisterType
+from PySide6.QtCore import Property, Slot, Signal, Qt, QObject, QThread, QAbstractListModel, QByteArray, QModelIndex, QTimer, QVariant
+from PySide6.QtSql import QSqlDatabase, QSqlQuery, QSqlDriver
+from PySide6.QtQml import qmlRegisterType
 
 class NotificationDelay(QTimer):
-    notification = pyqtSignal(str)
+    notification = Signal(str)
     def __init__(self, parent, table, interval=100):
         super().__init__(parent)
         self.table = table
@@ -17,12 +17,12 @@ class NotificationDelay(QTimer):
         self.setInterval(interval)
         self.timeout.connect(self.onTimeout)
 
-    @pyqtSlot()
+    @Slot()
     def onTimeout(self):
         self.notification.emit(self.table)
 
 class Database(QObject):
-    notification = pyqtSignal(str)
+    notification = Signal(str)
     instance = None
     def __init__(self, parent):
         super().__init__(parent)
@@ -34,7 +34,7 @@ class Database(QObject):
 
         self.timers = {}
 
-    @pyqtSlot(str)
+    @Slot(str)
     def onNotification(self, table):
         if not table in self.timers:
             timer = NotificationDelay(None, table)
@@ -49,7 +49,7 @@ class Database(QObject):
         self.notification.emit(table)
 
 class Connection(QObject):
-    notification = pyqtSignal(str)
+    notification = Signal(str)
     def __init__(self, parent=None):
         super().__init__(parent)
         self.db = None
@@ -91,12 +91,12 @@ class Connection(QObject):
                 break
         return q
 
-    @pyqtSlot(str)
+    @Slot(str)
     def relayNotification(self, table):
         self.notification.emit(table)
 
 class QueryRunnableSignals(QObject):
-    done = pyqtSignal(bool, str)
+    done = Signal(bool, str)
     def __init__(self):
         super().__init__()
     
@@ -143,9 +143,9 @@ class QueryRunnable(QThread):
         self.stopping = True
 
 class Sql(QAbstractListModel):
-    queryChanged = pyqtSignal()
-    resultsChanged = pyqtSignal()
-    partialChanged = pyqtSignal()
+    queryChanged = Signal()
+    resultsChanged = Signal()
+    partialChanged = Signal()
     def __init__(self, parent):
         super().__init__(parent)
 
@@ -168,7 +168,7 @@ class Sql(QAbstractListModel):
         self._partial = False 
         self._debug = False
 
-    @pyqtProperty(bool, notify=queryChanged)
+    @Property(bool, notify=queryChanged)
     def debug(self):
         return self._debug
 
@@ -176,7 +176,7 @@ class Sql(QAbstractListModel):
     def debug(self, value):
         self._debug = value
         
-    @pyqtProperty(str, notify=queryChanged)
+    @Property(str, notify=queryChanged)
     def query(self):
         return self.currentQuery
 
@@ -209,7 +209,7 @@ class Sql(QAbstractListModel):
         self.runnable.signals.done.connect(self.onDone)
         self.runnable.start()
 
-    @pyqtSlot(bool, str)
+    @Slot(bool, str)
     def onDone(self, partial, query):
         if query != self.currentQuery:
             return
@@ -320,7 +320,7 @@ class Sql(QAbstractListModel):
                 value = self.results[row].value(0)
         return value
 
-    @pyqtSlot(int, result='QVariant')
+    @Slot(int, result='QVariant')
     def get(self, index):
         if len(self.results) <= index:
             return None
@@ -331,7 +331,7 @@ class Sql(QAbstractListModel):
             out[record.fieldName(i)] = record.value(i)
         return out
     
-    @pyqtProperty(int, notify=resultsChanged)
+    @Property(int, notify=resultsChanged)
     def length(self):
         return len(self.results)
 
@@ -353,22 +353,22 @@ class Sql(QAbstractListModel):
         self.results = []
         self.endResetModel()
 
-    @pyqtSlot()
+    @Slot()
     def forceReset(self):
         self.beginResetModel()
         self.endResetModel()
 
-    @pyqtSlot(str)
+    @Slot(str)
     def onNotification(self, table):
         if table in self.currentQuery:
             if not self.reloadTimer.isActive():
                 self.reloadTimer.start(random.randint(50,150))
 
-    @pyqtSlot()
+    @Slot()
     def reload(self):
         self.setQuery(self.currentQuery)
 
-    @pyqtProperty(bool, notify=partialChanged)
+    @Property(bool, notify=partialChanged)
     def partial(self):
         return self._partial
 

@@ -2,10 +2,10 @@ import io
 import os
 import threading
 
-from PyQt5.QtCore import pyqtSlot, pyqtSignal, QObject, QMutex, QThreadPool, QUrl, QByteArray, QThread, QSize
-from PyQt5.QtSql import QSqlQuery
-from PyQt5.QtQuick import QQuickImageProvider, QQuickAsyncImageProvider, QQuickImageResponse, QQuickTextureFactory
-from PyQt5.QtGui import QImage
+from PySide6.QtCore import Slot, Signal, QObject, QMutex, QThreadPool, QUrl, QByteArray, QThread, QSize
+from PySide6.QtSql import QSqlQuery
+from PySide6.QtQuick import QQuickImageProvider, QQuickAsyncImageProvider, QQuickImageResponse, QQuickTextureFactory
+from PySide6.QtGui import QImage
 
 import PIL.Image
 
@@ -60,7 +60,7 @@ class ThumbnailStorage(QObject):
         self.guard.unlock()
 
 class ThumbnailResponseRunnableSignals(QObject):
-    done = pyqtSignal('QImage')
+    done = Signal('QImage')
 
 class ThumbnailResponseRunnable(threading.Thread):
     def __init__(self, file, size, quality):
@@ -96,7 +96,7 @@ class ThumbnailResponse(QQuickImageResponse):
             self.image = QImage.fromData(QByteArray(blob), "JPG")
             self.finished.emit()       
     
-    @pyqtSlot('QImage')
+    @Slot('QImage')
     def onDone(self, image):
         self.image = QImage(image)
         self.finished.emit()
