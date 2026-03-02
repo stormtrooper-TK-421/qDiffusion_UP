@@ -36,9 +36,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def ensure_supported_python() -> None:
-    if sys.version_info < (3, 14):
+    if sys.version_info < (3, 14, 3):
         version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-        raise SystemExit(f"Python 3.14+ is required. Current interpreter: {version}")
+        raise SystemExit(f"Python 3.14.3+ is required. Current interpreter: {version}")
 
 
 def _require_file(path: Path, description: str) -> None:

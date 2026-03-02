@@ -1,23 +1,31 @@
 @echo off
-for /f "tokens=4-7 delims=[.] " %%i in ('ver') do (if %%i==Version (set v=%%j.%%k) else (set v=%%i.%%j))
+setlocal
 
-IF NOT EXIST "python" (
-    cd ..
+if not exist "python\python.exe" (
+    if exist "..\python\python.exe" (
+        cd ..
+    )
 )
 
-IF NOT EXIST "python" (
-    echo DOWNLOADING PYTHON...
+if not exist "python\python.exe" (
+    echo DOWNLOADING PYTHON 3.14.3...
+    bitsadmin.exe /transfer "DOWNLOADING PYTHON 3.14.3" "https://github.com/arenasys/binaries/releases/download/v1/cpython-3.14.3+windows-x86_64-install_only.zip" "%CD%\python.zip"
 
-    IF "%v%" == "10.0" (
-        bitsadmin.exe /transfer "DOWNLOADING PYTHON 3.10..." "https://github.com/indygreg/python-build-standalone/releases/download/20230726/cpython-3.10.12+20230726-x86_64-pc-windows-msvc-shared-install_only.tar.gz" "%CD%/python.tar.gz"
-    ) else (
-        bitsadmin.exe /transfer "DOWNLOADING PYTHON 3.8..." "https://github.com/indygreg/python-build-standalone/releases/download/20230726/cpython-3.8.16+20230726-x86_64-pc-windows-msvc-shared-install_only.tar.gz" "%CD%/python.tar.gz"
+    if errorlevel 1 (
+        echo Failed to download Python runtime.
+        exit /b 1
     )
 
     echo EXTRACTING PYTHON...
-    tar -xf "python.tar.gz"
-    del /Q "python.tar.gz"
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -Force '%CD%\python.zip' '%CD%'"
+    if errorlevel 1 (
+        echo Failed to extract Python runtime.
+        del /q "%CD%\python.zip" 2>nul
+        exit /b 1
+    )
+
+    del /q "%CD%\python.zip"
 )
 
-start .\python\python.exe source\launch.py
-exit
+start "" ".\python\python.exe" source\launch.py
+exit /b 0
