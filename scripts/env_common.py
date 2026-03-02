@@ -63,6 +63,7 @@ def build_env(extra: dict[str, str] | None = None) -> dict[str, str]:
         {
             "PYTHONNOUSERSITE": "1",
             "PYTHONDONTWRITEBYTECODE": "1",
+            "PIP_NO_CACHE_DIR": "1",
             "QML_DISABLE_DISK_CACHE": "1",
             "QT_DISABLE_SHADER_DISK_CACHE": "1",
             "QSG_RHI_DISABLE_SHADER_DISK_CACHE": "1",

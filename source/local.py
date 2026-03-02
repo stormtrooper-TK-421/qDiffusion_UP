@@ -1,4 +1,5 @@
 import os
+import shutil
 import socket
 import subprocess
 import threading
@@ -47,6 +48,7 @@ class LocalInference(remote.RemoteInference):
         xdg_config = TMP_ROOT / "xdg_config"
         xdg_data = TMP_ROOT / "xdg_data"
         xdg_state = TMP_ROOT / "xdg_state"
+        self._reset_tmp_root()
         for path in (TMP_ROOT, xdg_cache, xdg_config, xdg_data, xdg_state):
             path.mkdir(parents=True, exist_ok=True)
 
@@ -61,6 +63,7 @@ class LocalInference(remote.RemoteInference):
                 "XDG_STATE_HOME": str(xdg_state),
                 "PYTHONNOUSERSITE": "1",
                 "PYTHONDONTWRITEBYTECODE": "1",
+                "PIP_NO_CACHE_DIR": "1",
                 "QML_DISABLE_DISK_CACHE": "1",
                 "QT_DISABLE_SHADER_DISK_CACHE": "1",
                 "QSG_RHI_DISABLE_SHADER_DISK_CACHE": "1",
@@ -72,6 +75,10 @@ class LocalInference(remote.RemoteInference):
         inherited_path = clean_env.get("PATH", "")
         clean_env["PATH"] = os.pathsep.join([venv_bin, inherited_path]) if inherited_path else venv_bin
         return clean_env
+
+    def _reset_tmp_root(self) -> None:
+        if TMP_ROOT.exists():
+            shutil.rmtree(TMP_ROOT, ignore_errors=True)
 
     def _read_server_logs(self):
         if not self.server_proc or not self.server_proc.stdout:
@@ -158,3 +165,4 @@ class LocalInference(remote.RemoteInference):
             except subprocess.TimeoutExpired:
                 self.server_proc.kill()
                 self.server_proc.wait(timeout=5)
+        self._reset_tmp_root()
