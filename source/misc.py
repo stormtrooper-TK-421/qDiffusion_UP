@@ -64,11 +64,11 @@ try:
 except:
     pass
 
-from PyQt5.QtCore import pyqtSlot, pyqtProperty, pyqtSignal, QObject, Qt, QEvent, QMimeData, QByteArray, QBuffer, QIODevice, QRect, QRectF, QPoint, QUrl, QThread, QSharedMemory
-from PyQt5.QtQuick import QQuickItem, QQuickPaintedItem
-from PyQt5.QtGui import QColor, QImage, QSyntaxHighlighter, QColor
-from PyQt5.QtNetwork import QNetworkRequest, QNetworkReply, QNetworkAccessManager
-from PyQt5.QtQml import qmlRegisterType, qmlRegisterUncreatableType
+from PySide6.QtCore import Signal as pyqtSignal, Slot as pyqtSlot, Property as pyqtProperty, QObject, Qt, QEvent, QMimeData, QByteArray, QBuffer, QIODevice, QRect, QRectF, QPoint, QUrl, QThread, QSharedMemory
+from PySide6.QtQuick import QQuickItem, QQuickPaintedItem
+from PySide6.QtGui import QColor, QImage, QSyntaxHighlighter
+from PySide6.QtNetwork import QNetworkRequest, QNetworkReply, QNetworkAccessManager
+from PySide6.QtQml import qmlRegisterType, qmlRegisterUncreatableType, qmlRegisterSingletonType
 
 class FocusReleaser(QQuickItem):
     releaseFocus = pyqtSignal()
@@ -213,7 +213,7 @@ class MimeData(QObject):
         super().__init__(parent)
         self._mimeData = mimeData
 
-    @pyqtProperty(QMimeData)
+    @pyqtProperty(QObject)
     def mimeData(self):
         return self._mimeData
     
