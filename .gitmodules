@@ -1,0 +1,3 @@
+[submodule "source/sd-inference-server"]
+	path = source/sd-inference-server
+	url = https://github.com/stromtroopertk421/sd-inference-server
