@@ -4,19 +4,19 @@ import os
 import send2trash
 import glob
 
-from PyQt5.QtCore import pyqtSlot, pyqtSignal, pyqtProperty, QObject, QThread, QUrl, QMimeData, Qt
-from PyQt5.QtSql import QSqlQuery
-from PyQt5.QtQml import qmlRegisterSingletonType
-from PyQt5.QtGui import QDesktopServices
-from PyQt5.QtWidgets import QApplication
+from PySide6.QtCore import Slot, Signal, Property, QObject, QThread, QUrl, QMimeData, Qt
+from PySide6.QtSql import QSqlQuery
+from PySide6.QtQml import qmlRegisterSingletonType
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtWidgets import QApplication
 import sql
 import filesystem
 import parameters
 import time
 
 class Populater(QObject):
-    forceReload = pyqtSignal(str)
-    stop = pyqtSignal(str)
+    forceReload = Signal(str)
+    stop = Signal(str)
     def __init__(self, gui, name):
         super().__init__()
         self.paths = []
@@ -41,7 +41,7 @@ class Populater(QObject):
         self.fresh = set()
         self.initial = True
 
-    @pyqtSlot()
+    @Slot()
     def started(self):
         self.conn = sql.Connection(self)
         self.conn.connect()
@@ -93,12 +93,12 @@ class Populater(QObject):
         self.primary = ""
         self.remaining = []
 
-    @pyqtSlot(str)
+    @Slot(str)
     def onParentChanged(self, folder):
         if folder == self.output:
             self.prepareFolders()
 
-    @pyqtSlot(str, int)
+    @Slot(str, int)
     def onFinished(self, folder, total):
         if not folder in self.folders:
             return
@@ -119,7 +119,7 @@ class Populater(QObject):
             self.initial = False
             self.resumeFolders()
 
-    @pyqtSlot(str, list, list)
+    @Slot(str, list, list)
     def onResult(self, folder, files, idxs):
         if not folder in self.folders:
             return
@@ -178,9 +178,9 @@ class Deleter(QThread):
         self.gui.thumbnails.removeAll(self.files)
 
 class Gallery(QObject):
-    update = pyqtSignal()
+    update = Signal()
 
-    forceReload = pyqtSignal()
+    forceReload = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -206,7 +206,7 @@ class Gallery(QObject):
 
         self.deleters = []
     
-    @pyqtSlot(list)
+    @Slot(list)
     def doOpenFiles(self, files):
         files = [os.path.abspath(f) for f in files if os.path.exists(f)]
         if not files:
@@ -214,7 +214,7 @@ class Gallery(QObject):
         
         self.gui.openFiles(files)
 
-    @pyqtSlot(list)
+    @Slot(list)
     def doVisitFiles(self, files):
         files = [os.path.abspath(f) for f in files if os.path.exists(f)]
         if not files:
@@ -222,7 +222,7 @@ class Gallery(QObject):
         
         self.gui.visitFiles(files)
 
-    @pyqtSlot(str, list)
+    @Slot(str, list)
     def doCopy(self, folder, files):
         files = [os.path.abspath(f) for f in files if os.path.exists(f)]
         if not files:
@@ -234,7 +234,7 @@ class Gallery(QObject):
             shutil.copy(src, dst)
             idx += 1
 
-    @pyqtSlot(str, list)
+    @Slot(str, list)
     def doMove(self, folder, files):
         files = [os.path.abspath(f) for f in files if os.path.exists(f)]
         if not files:
@@ -246,7 +246,7 @@ class Gallery(QObject):
             shutil.move(src, dst)
             idx += 1
 
-    @pyqtSlot(list)
+    @Slot(list)
     def doDelete(self, files):
         files = [os.path.abspath(f) for f in files if os.path.exists(f)]
         if not files:
@@ -256,7 +256,7 @@ class Gallery(QObject):
         deleter.start()
         self.deleters += [deleter]
 
-    @pyqtSlot(list)
+    @Slot(list)
     def doClipboard(self, files):
         files = [os.path.abspath(f) for f in files if os.path.exists(f)]
         if not files:
@@ -264,7 +264,7 @@ class Gallery(QObject):
         
         self.gui.copyFiles(files)
 
-    @pyqtSlot(list)
+    @Slot(list)
     def doDrag(self, files):
         files = [os.path.abspath(f) for f in files if os.path.exists(f)]
         if not files:
@@ -272,28 +272,28 @@ class Gallery(QObject):
         
         self.gui.dragFiles(files)
 
-    @pyqtSlot()
+    @Slot()
     def stop(self):
         self.populaterThread.quit()
         self.populaterThread.wait()
 
-    @pyqtProperty(int, notify=update)
+    @Property(int, notify=update)
     def cellSize(self):
         return self._cellSize
 
-    @pyqtSlot(int)
+    @Slot(int)
     def adjustCellSize(self, adj):
         cellSize = self._cellSize + adj
         if cellSize >= 100 and cellSize <= 200:
             self._cellSize = cellSize
             self.update.emit()
         
-    @pyqtSlot(str)
+    @Slot(str)
     def populaterForcedReload(self, folder):
         if folder == self.folder:
             self.forceReload.emit()
 
-    @pyqtProperty(str, notify=update)
+    @Property(str, notify=update)
     def currentFolder(self):
         return self.folder
     

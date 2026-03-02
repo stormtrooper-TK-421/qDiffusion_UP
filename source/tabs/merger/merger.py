@@ -11,13 +11,13 @@ import misc
 from tabs.basic.basic_output import BasicOutput
 import manager
 
-from PyQt5.QtCore import pyqtProperty, pyqtSignal, QObject, pyqtSlot, QUrl, QThread, QThreadPool
-from PyQt5.QtQml import qmlRegisterSingletonType, qmlRegisterUncreatableType
-from PyQt5.QtSql import QSqlQuery
-from PyQt5.QtGui import QImage
+from PySide6.QtCore import Property, Signal, QObject, Slot, QUrl, QThread, QThreadPool
+from PySide6.QtQml import qmlRegisterSingletonType, qmlRegisterUncreatableType
+from PySide6.QtSql import QSqlQuery
+from PySide6.QtGui import QImage
 
 class MergeOperation(QObject):
-    updated = pyqtSignal()
+    updated = Signal()
     def __init__(self, parent=None):
         super().__init__(parent)
         self._merger = parent
@@ -51,23 +51,23 @@ class MergeOperation(QObject):
 
         self._parameters.updated.connect(self.parametersUpdated)
 
-    @pyqtProperty(VariantMap, notify=updated)
+    @Property(VariantMap, notify=updated)
     def parameters(self):
         return self._parameters
 
-    @pyqtProperty(int, notify=updated)
+    @Property(int, notify=updated)
     def modelCount(self):
         type = self._merger._parameters.get("type")
         operation = self._parameters.get("operation")
         types = self.operationModelTypes(type, operation)
         return len([t for t in types if t])
     
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def hasAlpha(self):
         operation = self._parameters.get("operation")
         return not operation in {"Extract LoRA", "Combine LoRA"}
     
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def limitAlpha(self):
         type = self._merger._parameters.get("type")
         return type == "Checkpoint"
@@ -82,7 +82,7 @@ class MergeOperation(QObject):
             "Combine LoRA": ["LoRA", "LoRA", None],
         }[op]
 
-    @pyqtSlot(str)
+    @Slot(str)
     def parametersUpdated(self, key):
         if key == "operation":
             self.enforceModelTypes()
@@ -118,7 +118,7 @@ class MergeOperation(QObject):
 
         self.updated.emit()
     
-    @pyqtSlot(int, result=str)
+    @Slot(int, result=str)
     def modelMap(self, index):
         operation = self._parameters.get("operation")
         type = self._merger._parameters.get("type")
@@ -131,27 +131,27 @@ class MergeOperation(QObject):
 
         return type
 
-    @pyqtSlot(result=int)
+    @Slot(result=int)
     def getIndex(self):
         return self._merger._operations.index(self)
 
-    @pyqtProperty(str, notify=updated)
+    @Property(str, notify=updated)
     def modelAMap(self):
         return self.modelMap(0)
     
-    @pyqtProperty(str, notify=updated)
+    @Property(str, notify=updated)
     def modelBMap(self):
         return self.modelMap(1)
     
-    @pyqtProperty(str, notify=updated)
+    @Property(str, notify=updated)
     def modelCMap(self):
         return self.modelMap(2)
 
-    @pyqtProperty(VariantMap, notify=updated)
+    @Property(VariantMap, notify=updated)
     def blockWeights(self):
         return self._block_weights
     
-    @pyqtProperty(list, notify=updated)
+    @Property(list, notify=updated)
     def availableResults(self):
         type = self._merger._parameters.get("type")
         if type == "Checkpoint":
@@ -165,7 +165,7 @@ class MergeOperation(QObject):
             pass
         return []
 
-    @pyqtSlot(str)
+    @Slot(str)
     def setBlockWeightPreset(self, preset):
         data = [
             (12, self._block_labels_12),
@@ -193,7 +193,7 @@ class MergeOperation(QObject):
         if self._parameters.get("preset") != preset:
             self._parameters.set("preset", preset)
 
-    @pyqtSlot(result=str)
+    @Slot(result=str)
     def getBlockWeightLabels(self):
         labels = self._parameters.get("label")
         if labels == "12 Block":
@@ -203,7 +203,7 @@ class MergeOperation(QObject):
         if labels == "4 Block":
             return self._block_labels_4
 
-    @pyqtSlot(result=str)
+    @Slot(result=str)
     def getBlockWeightValues(self):
         outputs = []
         for label in self.getBlockWeightLabels():
@@ -211,13 +211,13 @@ class MergeOperation(QObject):
             outputs += [f"{value:.4f}".rstrip('0').rstrip('.')]
         return ",".join(outputs)
     
-    @pyqtSlot()
+    @Slot()
     def invertBlockWeightValues(self):
         for label in self.getBlockWeightLabels():
             value = self._block_weights.get(label)
             self._block_weights.set(label, 1.0 - value)
     
-    @pyqtSlot(str)
+    @Slot(str)
     def setBlockWeightValues(self, values):
         values = [v.strip() for v in values.split(",")]
 
@@ -278,12 +278,12 @@ class MergeOperation(QObject):
         return recipe
 
 class Merger(QObject):
-    updated = pyqtSignal()
-    managersUpdated = pyqtSignal()
-    operationSelected = pyqtSignal()
-    outputSelected = pyqtSignal()
+    updated = Signal()
+    managersUpdated = Signal()
+    operationSelected = Signal()
+    outputSelected = Signal()
     
-    input = pyqtSignal()
+    input = Signal()
     def __init__(self, parent=None):
         super().__init__(parent)
         self.name = "Merge"
@@ -331,11 +331,11 @@ class Merger(QObject):
         basic = self.gui.getBasicTab()
         return basic._parameters
 
-    @pyqtProperty(VariantMap, notify=updated)
+    @Property(VariantMap, notify=updated)
     def parameters(self):
         return self._parameters
 
-    @pyqtSlot(str)
+    @Slot(str)
     def parametersUpdated(self, key):
         type = self._parameters.get("type")
         for op in self._operations:
@@ -344,7 +344,7 @@ class Merger(QObject):
                 op._parameters.set("operation", allowed_operations[0])  
             op.enforceModelTypes()
     
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def forever(self):
         return self._forever
 
@@ -353,7 +353,7 @@ class Merger(QObject):
         self._forever = forever
         self.updated.emit()
 
-    @pyqtSlot()
+    @Slot()
     def buildRecipe(self):
         recipe = []
         model_type = self._parameters.get("type")
@@ -361,7 +361,7 @@ class Merger(QObject):
             recipe += [o.getRecipe(model_type)]
         return recipe
     
-    @pyqtSlot(result=str)
+    @Slot(result=str)
     def recipeName(self, full=False):
         names = []
         for op in self.buildRecipe():
@@ -411,11 +411,11 @@ class Merger(QObject):
                 names[k] = names[k].replace(match, names[i])
         return names[-1]
 
-    @pyqtSlot(result=QUrl)
+    @Slot(result=QUrl)
     def recipeJSONName(self):
         return QUrl.fromLocalFile(os.path.join(os.getcwd(), self.recipeName() + ".json"))
     
-    @pyqtSlot(QUrl)
+    @Slot(QUrl)
     def saveRecipe(self, file):
         file = file.toLocalFile()
         recipe = self.buildRecipe()
@@ -436,7 +436,7 @@ class Merger(QObject):
         except Exception:
             return
         
-    @pyqtSlot(QUrl)
+    @Slot(QUrl)
     def loadRecipe(self, file):
         file = file.toLocalFile()
         recipe = []
@@ -523,7 +523,7 @@ class Merger(QObject):
         self._selected_operation_index = 0
         self.operationSelected.emit()
 
-    @pyqtSlot(misc.MimeData)
+    @Slot(misc.MimeData)
     def drop(self, mimeData):
         mimeData = mimeData.mimeData
         for url in mimeData.urls():
@@ -531,15 +531,15 @@ class Merger(QObject):
                 self.loadRecipe(url)
                 break
 
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def valid(self):
         return self._valid
 
-    @pyqtProperty(list, notify=updated)
+    @Property(list, notify=updated)
     def operations(self):
         return self._operations
     
-    @pyqtProperty(int, notify=operationSelected)
+    @Property(int, notify=operationSelected)
     def selectedOperationIndex(self):
         return self._selected_operation_index
     
@@ -549,18 +549,18 @@ class Merger(QObject):
             self._selected_operation_index = index
             self.operationSelected.emit()
 
-    @pyqtProperty(MergeOperation, notify=operationSelected)
+    @Property(MergeOperation, notify=operationSelected)
     def selectedOperation(self):
         return self._operations[self._selected_operation_index]
 
-    @pyqtSlot()
+    @Slot()
     def addOperation(self):
         op = MergeOperation(self)
         op._parameters.updated.connect(self.check)
         self._operations += [op]
         self.check()
 
-    @pyqtSlot()
+    @Slot()
     def deleteOperation(self):
         self._operations.remove(self.selectedOperation)
         self._selected_operation_index = max(0, self._selected_operation_index - 1)
@@ -617,7 +617,7 @@ class Merger(QObject):
         
         return request
 
-    @pyqtSlot()
+    @Slot()
     def generate(self, user=True):
         if user or not self._manager.requests:
             self._manager.buildRequests(self.getGenerateParameters(), [])
@@ -625,7 +625,7 @@ class Merger(QObject):
         self._manager.makeRequest()
         self.updated.emit()
     
-    @pyqtSlot(str, bool)
+    @Slot(str, bool)
     def buildModel(self, filename, prompt):
         parameters = self.getGenerateParameters()
         device = parameters._values.get("device")
@@ -643,16 +643,16 @@ class Merger(QObject):
 
         self.gui.makeRequest(request)
 
-    @pyqtSlot()
+    @Slot()
     def cancel(self):
         self._manager.cancelRequest()
         self.updated.emit()
 
-    @pyqtSlot(int, str)
+    @Slot(int, str)
     def handleResult(self, id, name):
         self._manager.handleResult(id, name)
 
-    @pyqtSlot(int, object)
+    @Slot(int, object)
     def handleResponse(self, id, response):
         if response["type"] == "ack":
             id = response["data"]["id"]
@@ -667,7 +667,7 @@ class Merger(QObject):
         q.bindValue(":id", id)
         self.conn.doQuery(q)
 
-    @pyqtSlot(int, QImage, object, str)
+    @Slot(int, QImage, object, str)
     def onResult(self, id, image, metadata, filename):
         sticky = self.isSticky()
 
@@ -679,7 +679,7 @@ class Merger(QObject):
         if sticky:
             self.stick()            
 
-    @pyqtSlot(int, object, str)
+    @Slot(int, object, str)
     def onArtifact(self, id, image, name):
         if not id in self._outputs:
             self.createOutput(id, image)
@@ -691,7 +691,7 @@ class Merger(QObject):
 
         self.updated.emit()
 
-    @pyqtSlot()
+    @Slot()
     def onFinished(self):
         if self._forever or self._manager.requests:
             self.generate(user=False)
@@ -699,7 +699,7 @@ class Merger(QObject):
             self._manager.count = 0
             self.updated.emit()
 
-    @pyqtSlot(int)
+    @Slot(int)
     def handleReset(self, id):
         for out in list(self._outputs.keys()):
             if not self._outputs[out]._ready:
@@ -707,7 +707,7 @@ class Merger(QObject):
                     self.right()
                 self.deleteOutput(out)
 
-    @pyqtSlot(int, result=int)
+    @Slot(int, result=int)
     def outputIDToIndex(self, id):
         outputs = sorted(list(self._outputs.keys()), reverse=True)
         for i, p in enumerate(outputs):
@@ -715,7 +715,7 @@ class Merger(QObject):
                 return i
         return -1
     
-    @pyqtSlot(int, result=int)
+    @Slot(int, result=int)
     def outputIndexToID(self, idx):
         outputs = sorted(list(self._outputs.keys()), reverse=True)
         if idx >= 0 and idx < len(outputs):
@@ -730,7 +730,7 @@ class Merger(QObject):
             return True
         return False
 
-    @pyqtSlot()
+    @Slot()
     def stick(self):
         i = max(0, self.outputIDToIndex(self._opened_index)-1)
         index = self.outputIndexToID(i)
@@ -738,7 +738,7 @@ class Merger(QObject):
             self._opened_index = index
             self.outputSelected.emit()
 
-    @pyqtSlot()
+    @Slot()
     def right(self):
         if self._opened_index == -1:
             return
@@ -750,7 +750,7 @@ class Merger(QObject):
             self.outputSelected.emit()
             self.input.emit()
 
-    @pyqtSlot()
+    @Slot()
     def left(self):
         if self._opened_index == -1:
             return
@@ -762,12 +762,12 @@ class Merger(QObject):
             self.outputSelected.emit()
             self.input.emit()
 
-    @pyqtSlot(int, result=BasicOutput)
+    @Slot(int, result=BasicOutput)
     def outputs(self, id):
         if id in self._outputs:
             return self._outputs[id]
         
-    @pyqtProperty(int, notify=outputSelected)
+    @Property(int, notify=outputSelected)
     def openedIndex(self):
         return self._opened_index
     
@@ -776,7 +776,7 @@ class Merger(QObject):
         self._opened_index = index
         self.outputSelected.emit()
 
-    @pyqtSlot(int)
+    @Slot(int)
     def deleteOutput(self, id):
         if not id in self._outputs:
             return
@@ -787,7 +787,7 @@ class Merger(QObject):
         q.bindValue(":id", id)
         self.conn.doQuery(q)
     
-    @pyqtSlot(int)
+    @Slot(int)
     def deleteOutputAfter(self, id):
         for i in list(self._outputs.keys()):
             if i < id:
@@ -799,7 +799,7 @@ class Merger(QObject):
         self.conn.doQuery(q)
         self.updated.emit()
 
-    @pyqtSlot()
+    @Slot()
     def check(self):
         self._valid = True
         for op in self.buildRecipe():
@@ -808,7 +808,7 @@ class Merger(QObject):
                     self._valid = False
         self.updated.emit()
      
-    @pyqtSlot(str, result=str)
+    @Slot(str, result=str)
     def closestModel(self, name, models):
         if not models:
             return ''
@@ -826,11 +826,11 @@ class Merger(QObject):
         
         return best
     
-    @pyqtProperty(manager.RequestManager, notify=managersUpdated)
+    @Property(manager.RequestManager, notify=managersUpdated)
     def manager(self):
         return self._manager
 
-    @pyqtProperty(misc.GridManager, notify=managersUpdated)
+    @Property(misc.GridManager, notify=managersUpdated)
     def grid(self):
         if not self._grid:
             self._grid = misc.GridManager(self.getGenerateParameters(), self._manager, self)

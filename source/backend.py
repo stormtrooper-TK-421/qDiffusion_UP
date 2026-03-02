@@ -6,8 +6,8 @@ import datetime
 import copy
 import os
 
-from PyQt5.QtCore import pyqtSlot, pyqtProperty, pyqtSignal, QObject, QThread, Qt
-from PyQt5.QtWidgets import QApplication
+from PySide6.QtCore import Slot, Property, Signal, QObject, QThread, Qt
+from PySide6.QtWidgets import QApplication
 
 import local
 import remote
@@ -58,10 +58,10 @@ def convert_all_paths(j):
                 convert_all_paths(j[k])
 
 class Backend(QObject):
-    updated = pyqtSignal()
-    request = pyqtSignal(object)
-    response = pyqtSignal(object)
-    stopping = pyqtSignal()
+    updated = Signal()
+    request = Signal(object)
+    response = Signal(object)
+    stopping = Signal()
 
     def __init__(self, gui):
         super().__init__(gui)
@@ -99,7 +99,7 @@ class Backend(QObject):
         self.stopping.connect(self.inference.stop)
         self.inference.start()
 
-    @pyqtSlot()
+    @Slot()
     def stop(self):
         self.stopping.emit()
 
@@ -126,18 +126,18 @@ class Backend(QObject):
             with open("debug.log", "a", encoding='utf-8') as f:
                 f.write(f"{type} {datetime.datetime.now()}\n{j}\n")
 
-    @pyqtSlot(object)
+    @Slot(object)
     def makeRequest(self, request):
         self.debugLogging("REQUEST", request)
         self.request.emit(request)
 
-    @pyqtSlot(object)
+    @Slot(object)
     def onResponse(self, response):
         convert_all_paths(response)
         self.debugLogging("RESPONSE", response)
         self.response.emit(response)
 
-    @pyqtProperty(str, notify=updated)
+    @Property(str, notify=updated)
     def mode(self):
         if self.inference and type(self.inference) == remote.RemoteInference:
             return "Remote"

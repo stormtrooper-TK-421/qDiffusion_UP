@@ -7,8 +7,8 @@ import json
 import PIL.Image
 import PIL.PngImagePlugin
 
-from PyQt5.QtCore import pyqtSlot, pyqtProperty, pyqtSignal, QObject, Qt, QVariant, QSize
-from PyQt5.QtQml import qmlRegisterUncreatableType, qmlRegisterType
+from PySide6.QtCore import Slot, Property, Signal, QObject, Qt, QVariant, QSize
+from PySide6.QtQml import qmlRegisterUncreatableType, qmlRegisterType
 
 IDX = -1
 
@@ -214,20 +214,20 @@ def getExtent(bound, padding, src, wrk):
     return int(x1), int(y1), int(x2), int(y2)
 
 class VariantMap(QObject):
-    updating = pyqtSignal(str, 'QVariant', 'QVariant')
-    updated = pyqtSignal(str)
+    updating = Signal(str, 'QVariant', 'QVariant')
+    updated = Signal(str)
     def __init__(self, parent=None, map = {}, strict=False):
         super().__init__(parent)
         self._map = map
         self._strict = strict
 
-    @pyqtSlot(str, result='QVariant')
+    @Slot(str, result='QVariant')
     def get(self, key, default=QVariant()):
         if key in self._map:
             return self._map[key]
         return default
     
-    @pyqtSlot(str, 'QVariant')
+    @Slot(str, 'QVariant')
     def set(self, key, value):
         if key in self._map and self._map[key] == value:
             return
@@ -246,7 +246,7 @@ class VariantMap(QObject):
         self.updated.emit(key)
 
 class ParametersItem(QObject):
-    updated = pyqtSignal()
+    updated = Signal()
     def __init__(self, parent=None, name="", label="", value=""):
         super().__init__(parent)
         self._name = name
@@ -254,19 +254,19 @@ class ParametersItem(QObject):
         self._value = value
         self._checked = True
 
-    @pyqtProperty(str, notify=updated)
+    @Property(str, notify=updated)
     def name(self):
         return self._name
 
-    @pyqtProperty(str, notify=updated)
+    @Property(str, notify=updated)
     def label(self):
         return self._label
             
-    @pyqtProperty(str, notify=updated)
+    @Property(str, notify=updated)
     def value(self):
         return self._value
 
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def checked(self):
         return self._checked
     
@@ -276,8 +276,8 @@ class ParametersItem(QObject):
         self.updated.emit()
 
 class ParametersParser(QObject):
-    updated = pyqtSignal()
-    success = pyqtSignal()
+    updated = Signal()
+    success = Signal()
     def __init__(self, parent=None, formatted=None, json=None):
         super().__init__(parent)
         self._parameters = []
@@ -294,7 +294,7 @@ class ParametersParser(QObject):
         else:
             self._json = {}
 
-    @pyqtProperty(str, notify=updated)
+    @Property(str, notify=updated)
     def formatted(self):
         return self._formatted
 
@@ -304,7 +304,7 @@ class ParametersParser(QObject):
             self._formatted = formatted
             self.parseFormatted()
             
-    @pyqtProperty(object, notify=updated)
+    @Property(object, notify=updated)
     def json(self):
         return self._json
 
@@ -314,7 +314,7 @@ class ParametersParser(QObject):
             self._json = json
             self._parseJson()
     
-    @pyqtProperty(list, notify=updated)
+    @Property(list, notify=updated)
     def parameters(self):
         return self._parameters
     
@@ -349,7 +349,7 @@ class ParametersParser(QObject):
             return False
     
 class Parameters(QObject):
-    updated = pyqtSignal()
+    updated = Signal()
     def __init__(self, parent=None, source=None):
         super().__init__(parent)
         
@@ -407,7 +407,7 @@ class Parameters(QObject):
             h = int(h * factor)
         return QSize(w,h)
 
-    @pyqtSlot()
+    @Slot()
     def promptsChanged(self):
         positive = self._values.get("prompt")
         negative = self._values.get("negative_prompt")
@@ -423,23 +423,23 @@ class Parameters(QObject):
                     break
         self.updated.emit()
 
-    @pyqtProperty(list, notify=updated)
+    @Property(list, notify=updated)
     def availableNetworks(self):
         return self._availableNetworks
 
-    @pyqtProperty(list, notify=updated)
+    @Property(list, notify=updated)
     def activeNetworks(self):
         return self._activeNetworks
     
-    @pyqtProperty(list, notify=updated)
+    @Property(list, notify=updated)
     def activeDetailers(self):
         return self._activeDetailers
     
-    @pyqtProperty(list, notify=updated)
+    @Property(list, notify=updated)
     def active(self):
         return self._active
     
-    @pyqtSlot(str)
+    @Slot(str)
     def addNetwork(self, net):
         if not net in self._availableNetworks:
             return
@@ -449,7 +449,7 @@ class Parameters(QObject):
         name = self.gui.modelName(net)        
         self._values.set("prompt", self._values.get("prompt") + f"<lora:{name}:1.0>")   
 
-    @pyqtSlot(int)
+    @Slot(int)
     def deleteNetwork(self, index):
         net = self._activeNetworks[index]
         name = self.gui.modelName(net)
@@ -461,21 +461,21 @@ class Parameters(QObject):
         self._values.set("prompt", positive)
         self._values.set("negative_prompt", negative)
 
-    @pyqtSlot(str)
+    @Slot(str)
     def addDetailer(self, detailer):
         self.doActivate(detailer)
         self.getActive()
 
-    @pyqtSlot(int)
+    @Slot(int)
     def deleteDetailer(self, index):
         self.doDeactivate(self._activeDetailers[index])
         self.getActive()
     
-    @pyqtProperty(VariantMap, notify=updated)
+    @Property(VariantMap, notify=updated)
     def values(self):
         return self._values
 
-    @pyqtSlot(str, 'QVariant', 'QVariant')
+    @Slot(str, 'QVariant', 'QVariant')
     def mapsUpdating(self, key, prev, curr):
         changed = False
         pairs = [("true_sampler", "hr_sampler"), ("steps", "hr_steps"), ("scale", "hr_scale"), ("UNET", "hr_model")]
@@ -489,7 +489,7 @@ class Parameters(QObject):
         if changed:
             self.updated.emit()
 
-    @pyqtSlot(str)
+    @Slot(str)
     def onUpdated(self, key):
         self.getActive()
 
@@ -516,7 +516,7 @@ class Parameters(QObject):
         self._values.set("true_sampler", true_sampler)
         
 
-    @pyqtSlot()
+    @Slot()
     def optionsUpdated(self):
         if not self.gui._options:
             return
@@ -780,11 +780,11 @@ class Parameters(QObject):
         }
         return {"type":"annotate", "data": data}
 
-    @pyqtSlot()
+    @Slot()
     def reset(self):
         pass
 
-    @pyqtSlot(list)
+    @Slot(list)
     def sync(self, params):
         processed = {}
 
@@ -971,7 +971,7 @@ class Parameters(QObject):
     def parseSubprompts(self, p):
         return [s.replace('\n','').replace('\r', '').strip() for s in re.split(r"\sAND\s", p + " ")]
     
-    @pyqtProperty(list, notify=updated)
+    @Property(list, notify=updated)
     def subprompts(self):
         p = self._values.get("prompt")
         p = self.parseSubprompts(p)
@@ -979,7 +979,7 @@ class Parameters(QObject):
             return []
         return p[1:]
 
-    @pyqtSlot()
+    @Slot()
     def getActive(self):
         last = set(self._active)
         self._active = []
@@ -1017,7 +1017,7 @@ class Parameters(QObject):
         if set(self._active) != last:
             self.updated.emit()
 
-    @pyqtSlot(str)
+    @Slot(str)
     def doActivate(self, file):
         def append(s, key="prompt"):
             prompt = self._values.get(key)
@@ -1052,7 +1052,7 @@ class Parameters(QObject):
         if file in self._values.get("Detailers") and not file in self._activeDetailers:
             self._activeDetailers += [file]
         
-    @pyqtSlot(str)
+    @Slot(str)
     def doDeactivate(self, file):
         def remove(m):
             m = fr"(,*\s*{m})"
@@ -1084,7 +1084,7 @@ class Parameters(QObject):
         if file in self._activeDetailers:
             self._activeDetailers.remove(file)
 
-    @pyqtSlot(str)
+    @Slot(str)
     def doToggle(self, file):
         if file in self._active:
             self.doDeactivate(file)

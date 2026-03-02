@@ -1,7 +1,7 @@
-from PyQt5.QtCore import Qt, pyqtProperty, pyqtSignal, QObject, pyqtSlot, QUrl, QThread, QMimeData, QByteArray
-from PyQt5.QtQml import qmlRegisterSingletonType
-from PyQt5.QtSql import QSqlQuery
-from PyQt5.QtGui import QImage, QDesktopServices, QDrag
+from PySide6.QtCore import Qt, Property, Signal, QObject, Slot, QUrl, QThread, QMimeData, QByteArray
+from PySide6.QtQml import qmlRegisterSingletonType
+from PySide6.QtSql import QSqlQuery
+from PySide6.QtGui import QImage, QDesktopServices, QDrag
 
 import sql
 import os
@@ -29,7 +29,7 @@ MODES = {v:k for k,v in LABELS.items()}
 MIME_EXPLORER_MODEL = "application/x-qd-explorer-model"
 
 class Populater(QObject):
-    finished = pyqtSignal()
+    finished = Signal()
     def __init__(self, gui, name):
         super().__init__()
         self.gui = gui
@@ -48,7 +48,7 @@ class Populater(QObject):
         for ext in ["*.txt", "*.csv", "*.civitai.info"]:
             self.all_descs += glob.glob(os.path.join(folder, os.path.join("**", ext)), recursive=True)
 
-    @pyqtSlot()
+    @Slot()
     def populateOptions(self):
         self.gui.setTabWorking(self.name, True)
 
@@ -64,7 +64,7 @@ class Populater(QObject):
         self.gui.setTabWorking(self.name, False)
         self.finished.emit()
 
-    @pyqtSlot()
+    @Slot()
     def populateFavourites(self):
         self.gui.setTabWorking(self.name, True)
 
@@ -252,11 +252,11 @@ class Populater(QObject):
 
 
 class Explorer(QObject):
-    updated = pyqtSignal()
-    tabUpdated = pyqtSignal()
-    updateOptions = pyqtSignal()
-    updateFavourites = pyqtSignal()
-    dragSignal = pyqtSignal(str)
+    updated = Signal()
+    tabUpdated = Signal()
+    updateOptions = Signal()
+    updateFavourites = Signal()
+    dragSignal = Signal(str)
     def __init__(self, parent=None):
         super().__init__(parent)
         self.gui = parent
@@ -295,38 +295,38 @@ class Explorer(QObject):
 
         self.dragSignal.connect(self.drag, Qt.QueuedConnection)
 
-    @pyqtProperty(str, notify=tabUpdated)
+    @Property(str, notify=tabUpdated)
     def currentTab(self): 
         return self._currentTab
 
-    @pyqtProperty(str, notify=tabUpdated)
+    @Property(str, notify=tabUpdated)
     def currentFolder(self): 
         return self._currentFolder
 
-    @pyqtProperty(str, notify=tabUpdated)
+    @Property(str, notify=tabUpdated)
     def currentQuery(self):
         return f"category = '{self._currentTab}' AND folder = '{self._currentFolder}'"
 
-    @pyqtSlot(str, str)
+    @Slot(str, str)
     def setCurrent(self, tab, folder):
         self._currentTab = tab
         self._currentFolder = folder
         self.tabUpdated.emit()
 
-    @pyqtSlot(str, result=str)
+    @Slot(str, result=str)
     def getLabel(self, mode):
         return LABELS[mode]
     
-    @pyqtSlot(str, result=str)
+    @Slot(str, result=str)
     def getMode(self, label):
         return MODES[label]
 
-    @pyqtSlot()
+    @Slot()
     def stop(self):
         self.populaterThread.quit()
         self.populaterThread.wait()
 
-    @pyqtSlot()
+    @Slot()
     def optionsUpdated(self):
         if self.optionsRunning:
             self.optionsOutdated = True
@@ -334,18 +334,18 @@ class Explorer(QObject):
         self.optionsRunning = True
         self.updateOptions.emit()
 
-    @pyqtSlot()
+    @Slot()
     def favouritesUpdated(self):
         self.updateFavourites.emit()
 
-    @pyqtSlot()
+    @Slot()
     def finished(self):
         self.optionsRunning = False
         if self.optionsOutdated:
             self.optionsOutdated = False
             self.optionsUpdated()
 
-    @pyqtSlot(misc.MimeData, str)
+    @Slot(misc.MimeData, str)
     def doReplace(self, mimedata, file):
         mimedata = mimedata.mimeData
         image = None
@@ -371,7 +371,7 @@ class Explorer(QObject):
             q.bindValue(":height", image.height())
             self.conn.doQuery(q)
             
-    @pyqtSlot(str)
+    @Slot(str)
     def doClear(self, file):
         if os.path.exists(file):
             os.remove(file)
@@ -383,17 +383,17 @@ class Explorer(QObject):
             q.bindValue(":height", 0)
             self.conn.doQuery(q)
     
-    @pyqtSlot(str)
+    @Slot(str)
     def doDelete(self, file):
         request = {"type":"manage", "data": {"operation": "modify", "old_file": file, "new_file": ""}}
         self.gui.makeRequest(request)
 
-    @pyqtSlot(str)
+    @Slot(str)
     def doPrune(self, file):
         request = {"type":"manage", "data": {"operation": "prune", "file": file}}
         self.gui.makeRequest(request)
 
-    @pyqtSlot(str)
+    @Slot(str)
     def doVisit(self, file):
         path = os.path.abspath(os.path.join(self.gui.modelDirectory(), file))
         try:
@@ -401,7 +401,7 @@ class Explorer(QObject):
         except Exception:
             pass
 
-    @pyqtSlot(str, str, str)
+    @Slot(str, str, str)
     def doEdit(self, file, name, desc):
         old_file = file
         new_file = os.path.join(os.path.dirname(old_file), name)
@@ -426,7 +426,7 @@ class Explorer(QObject):
 
         self.optionsUpdated()
 
-    @pyqtSlot(str)
+    @Slot(str)
     def drag(self, model):
         drag = QDrag(self)
         mimeData = QMimeData()
@@ -434,11 +434,11 @@ class Explorer(QObject):
         drag.setMimeData(mimeData)
         drag.exec()
 
-    @pyqtSlot(str)
+    @Slot(str)
     def doDrag(self, model):
         self.dragSignal.emit(model)
 
-    @pyqtSlot(MimeData, result=str)
+    @Slot(MimeData, result=str)
     def onDrop(self, mimeData):
         mimeData = mimeData.mimeData
         if MIME_EXPLORER_MODEL in mimeData.formats():
@@ -446,24 +446,24 @@ class Explorer(QObject):
         else:
             return ""
     
-    @pyqtSlot(str, str, str)
+    @Slot(str, str, str)
     def doMove(self, model, folder, subfolder):
         folder = MODEL_FOLDERS[folder][0]
         request = {"type":"manage", "data": {"operation": "move", "old_file": model, "new_folder": folder, "new_subfolder": subfolder}}
         self.gui.makeRequest(request)
 
-    @pyqtProperty(int, notify=updated)
+    @Property(int, notify=updated)
     def cellSize(self):
         return self._cellSize
 
-    @pyqtSlot(int)
+    @Slot(int)
     def adjustCellSize(self, adj):
         cellSize = self._cellSize + adj
         if cellSize >= 150 and cellSize <= 450:
             self._cellSize = cellSize
             self.updated.emit()
 
-    @pyqtProperty(bool, notify=updated)
+    @Property(bool, notify=updated)
     def showInfo(self):
         return self._showInfo
     
@@ -472,7 +472,7 @@ class Explorer(QObject):
         self._showInfo = showInfo
         self.updated.emit()
 
-    @pyqtProperty(misc.InspectorManager, notify=updated)
+    @Property(misc.InspectorManager, notify=updated)
     def inspector(self):
         return self._inspector
     
@@ -480,7 +480,7 @@ class Explorer(QObject):
         request = {"type":"metadata", "data": {"model": name}}
         self.gui.makeRequest(request)
 
-    @pyqtSlot(int, object)
+    @Slot(int, object)
     def onResponse(self, id, response):
         type = response.get("type", "")
         data = response.get("data", {})
