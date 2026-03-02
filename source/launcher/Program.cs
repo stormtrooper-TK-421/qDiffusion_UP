@@ -13,6 +13,8 @@ using System.Windows.Forms;
 using System.Drawing;
 using System.Linq;
 using Microsoft.Win32;
+using System.Security.Cryptography;
+using System.Collections.Generic;
 
 namespace qDiffusion
 {
@@ -20,6 +22,15 @@ namespace qDiffusion
     {
         [DllImport("shell32.dll", SetLastError = true)]
         static extern void SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
+
+        private const string PythonVersion = "3.14.3";
+        private const string PythonArchive = "python-3.14.3.zip";
+        private const string PythonDownloadUrl = "https://github.com/arenasys/binaries/releases/download/v1/cpython-3.14.3+windows-x86_64-install_only.zip";
+        private const string PythonSha256 = "";
+        private const string PythonMarkerFile = @"python\.qdiff_python_version";
+        private const string PipMarkerFile = @".venv\.qdiff_pip_upgraded";
+        private const string PySideMarkerFile = @".venv\.qdiff_pyside6_6.10.2_installed";
+        private const string RequiredPySideVersion = "6.10.2";
 
         private Dialog progress;
 
@@ -88,7 +99,7 @@ namespace qDiffusion
 
             key.Close();
         }
- 
+
         class SyncObject
         {
             public string Error { get; set; }
@@ -132,89 +143,6 @@ namespace qDiffusion
             }
         }
 
-        public static string GetString(byte[] buffer, int length)
-        {
-            return Encoding.ASCII.GetString(buffer, 0, length).Split('\0')[0];
-        }
-
-        public static void ExtractTarGz(string filename, string outputDir)
-        {
-            void ReadExactly(Stream stream, byte[] buffer, int count)
-            {
-                var total = 0;
-                while (true)
-                {
-                    int n = stream.Read(buffer, total, count - total);
-                    total += n;
-                    if (total == count)
-                        return;
-                }
-            }
-
-            void SeekExactly(Stream stream, byte[] buffer, int count)
-            {
-                ReadExactly(stream, buffer, count);
-            }
-
-            using (var fs = File.OpenRead(filename))
-            {
-                using (var stream = new GZipStream(fs, CompressionMode.Decompress))
-                {
-                    var buffer = new byte[1024];
-                    while (true)
-                    {
-                        ReadExactly(stream, buffer, 100);
-                        var name = Encoding.ASCII.GetString(buffer, 0, 100).Split('\0')[0];
-                        if (String.IsNullOrWhiteSpace(name))
-                            break;
-
-                        SeekExactly(stream, buffer, 24);
-
-                        ReadExactly(stream, buffer, 12);
-                        var sizeString = Encoding.ASCII.GetString(buffer, 0, 12).Split('\0')[0];
-                        var size = Convert.ToInt64(sizeString, 8);
-
-                        SeekExactly(stream, buffer, 209);
-
-                        ReadExactly(stream, buffer, 155);
-                        var prefix = Encoding.ASCII.GetString(buffer, 0, 155).Split('\0')[0];
-                        if (!String.IsNullOrWhiteSpace(prefix))
-                        {
-                            name = prefix + name;
-                        }
-
-                        SeekExactly(stream, buffer, 12);
-
-                        var output = Path.GetFullPath(Path.Combine(outputDir, name));
-                        if (!Directory.Exists(Path.GetDirectoryName(output)))
-                        {
-                            Directory.CreateDirectory(Path.GetDirectoryName(output));
-                        }
-                        using (var outfs = File.Open(output, FileMode.OpenOrCreate, FileAccess.Write))
-                        {
-                            var total = 0;
-                            var next = 0;
-                            while (true)
-                            {
-                                next = Math.Min(buffer.Length, (int)size - total);
-                                ReadExactly(stream, buffer, next);
-                                outfs.Write(buffer, 0, next);
-                                total += next;
-                                if (total == size)
-                                    break;
-                            }
-                        }
-
-                        var offset = 512 - ((int)size % 512);
-                        if (offset == 512)
-                            offset = 0;
-
-                        SeekExactly(stream, buffer, offset);
-                    }
-                }
-            }
-        }
-
         public static string MD5(string input)
         {
             using (System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create())
@@ -230,10 +158,72 @@ namespace qDiffusion
             }
         }
 
-        public static void Run(params string[] args)
+        public static string QuoteArg(string arg)
+        {
+            if (arg == null)
+            {
+                return "\"\"";
+            }
+
+            if (arg.Length == 0)
+            {
+                return "\"\"";
+            }
+
+            bool needsQuotes = arg.Any(ch => char.IsWhiteSpace(ch) || ch == '"');
+            if (!needsQuotes)
+            {
+                return arg;
+            }
+
+            var sb = new StringBuilder();
+            sb.Append('"');
+            int backslashes = 0;
+            foreach (char c in arg)
+            {
+                if (c == '\\')
+                {
+                    backslashes++;
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    sb.Append(new string('\\', backslashes * 2 + 1));
+                    sb.Append('"');
+                    backslashes = 0;
+                    continue;
+                }
+
+                if (backslashes > 0)
+                {
+                    sb.Append(new string('\\', backslashes));
+                    backslashes = 0;
+                }
+                sb.Append(c);
+            }
+
+            if (backslashes > 0)
+            {
+                sb.Append(new string('\\', backslashes * 2));
+            }
+            sb.Append('"');
+            return sb.ToString();
+        }
+
+        private static string BuildArguments(string[] args)
+        {
+            if (args.Length <= 1)
+            {
+                return string.Empty;
+            }
+            return string.Join(" ", args.Skip(1).Select(QuoteArg).ToArray());
+        }
+
+        public static string Run(params string[] args)
         {
             string command = args[0];
-            string arguments = string.Join(" ", args, 1, args.Length - 1);
+            string arguments = BuildArguments(args);
 
             ProcessStartInfo startInfo = new ProcessStartInfo(command, arguments)
             {
@@ -243,36 +233,56 @@ namespace qDiffusion
                 CreateNoWindow = true
             };
 
-            Process process = new Process
+            using (Process process = new Process { StartInfo = startInfo })
             {
-                StartInfo = startInfo
-            };
+                var stdout = new StringBuilder();
+                var stderr = new StringBuilder();
 
-            try
-            {
+                process.OutputDataReceived += (s, e) =>
+                {
+                    if (e.Data != null)
+                    {
+                        lock (stdout) { stdout.AppendLine(e.Data); }
+                    }
+                };
+                process.ErrorDataReceived += (s, e) =>
+                {
+                    if (e.Data != null)
+                    {
+                        lock (stderr) { stderr.AppendLine(e.Data); }
+                    }
+                };
+
                 process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
                 process.WaitForExit();
 
                 if (process.ExitCode != 0)
                 {
-                    string errorOutput = process.StandardError.ReadToEnd();
-                    if (string.IsNullOrEmpty(errorOutput))
+                    var error = stderr.ToString();
+                    if (string.IsNullOrWhiteSpace(error))
                     {
-                        errorOutput = process.StandardOutput.ReadToEnd();
+                        error = stdout.ToString();
                     }
-                    throw new Exception(errorOutput);
+                    throw new Exception(string.IsNullOrWhiteSpace(error)
+                        ? "Process failed with exit code " + process.ExitCode
+                        : error.Trim());
                 }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
+
+                var output = stdout.ToString();
+                if (string.IsNullOrWhiteSpace(output))
+                {
+                    output = stderr.ToString();
+                }
+                return output;
             }
         }
 
         public static void Launch(params string[] args)
         {
             string command = args[0];
-            string arguments = string.Join(" ", args, 1, args.Length - 1);
+            string arguments = BuildArguments(args);
 
             ProcessStartInfo startInfo = new ProcessStartInfo(command, arguments)
             {
@@ -289,6 +299,320 @@ namespace qDiffusion
 
             process.Start();
         }
+
+        private static void SafeDeleteDirectory(string path)
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, true);
+            }
+        }
+
+        private static string ComputeSha256(string filename)
+        {
+            using (var sha = SHA256.Create())
+            using (var stream = File.OpenRead(filename))
+            {
+                var hash = sha.ComputeHash(stream);
+                return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+            }
+        }
+
+        private static string GetExpectedSha256(string url)
+        {
+            if (!string.IsNullOrWhiteSpace(PythonSha256))
+            {
+                return PythonSha256.ToLowerInvariant();
+            }
+
+            using (var wc = new WebClient())
+            {
+                var text = wc.DownloadString(url + ".sha256");
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    throw new Exception("Missing Python checksum data.");
+                }
+
+                var token = text.Split(new[] { " ", "\t", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(token) || token.Length != 64)
+                {
+                    throw new Exception("Invalid Python checksum data.");
+                }
+                return token.ToLowerInvariant();
+            }
+        }
+
+        private static void ExtractZipSafe(string zipFile, string outputDir)
+        {
+            string root = Path.GetFullPath(outputDir);
+            if (!root.EndsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                root += Path.DirectorySeparatorChar;
+            }
+
+            using (var archive = ZipFile.OpenRead(zipFile))
+            {
+                foreach (var entry in archive.Entries)
+                {
+                    if (string.IsNullOrEmpty(entry.FullName))
+                    {
+                        continue;
+                    }
+
+                    string destination = Path.GetFullPath(Path.Combine(root, entry.FullName));
+                    if (!destination.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidOperationException("Archive contained an invalid path: " + entry.FullName);
+                    }
+
+                    if (entry.FullName.EndsWith("/", StringComparison.Ordinal) || entry.FullName.EndsWith("\\", StringComparison.Ordinal))
+                    {
+                        Directory.CreateDirectory(destination);
+                        continue;
+                    }
+
+                    string parent = Path.GetDirectoryName(destination);
+                    if (!Directory.Exists(parent))
+                    {
+                        Directory.CreateDirectory(parent);
+                    }
+                    entry.ExtractToFile(destination, true);
+                }
+            }
+        }
+
+        private static string ReadVersionFromOutput(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return string.Empty;
+            }
+            var parts = text.Trim().Split(' ');
+            if (parts.Length < 2)
+            {
+                return string.Empty;
+            }
+            return parts[1].Trim();
+        }
+
+        private static void ConfigureCleanEnvironment(string exeDir)
+        {
+            var toClear = new List<string>();
+            foreach (DictionaryEntry de in Environment.GetEnvironmentVariables())
+            {
+                var key = (string)de.Key;
+                if (key.StartsWith("PYTHON", StringComparison.OrdinalIgnoreCase)
+                    || key.StartsWith("PIP", StringComparison.OrdinalIgnoreCase)
+                    || key.StartsWith("QT", StringComparison.OrdinalIgnoreCase)
+                    || key.StartsWith("QML", StringComparison.OrdinalIgnoreCase))
+                {
+                    toClear.Add(key);
+                }
+            }
+
+            foreach (var key in toClear)
+            {
+                Environment.SetEnvironmentVariable(key, null);
+            }
+
+            var tmpDir = Path.Combine(exeDir, ".tmp");
+            Directory.CreateDirectory(tmpDir);
+
+            Environment.SetEnvironmentVariable("PYTHONNOUSERSITE", "1");
+            Environment.SetEnvironmentVariable("PYTHONDONTWRITEBYTECODE", "1");
+            Environment.SetEnvironmentVariable("PIP_NO_CACHE_DIR", "1");
+            Environment.SetEnvironmentVariable("PIP_DISABLE_PIP_VERSION_CHECK", "1");
+            Environment.SetEnvironmentVariable("PIP_CONFIG_FILE", "nul");
+            Environment.SetEnvironmentVariable("QML_DISABLE_DISK_CACHE", "1");
+            Environment.SetEnvironmentVariable("QT_DISABLE_SHADER_DISK_CACHE", "1");
+            Environment.SetEnvironmentVariable("QSG_RHI_DISABLE_SHADER_DISK_CACHE", "1");
+            Environment.SetEnvironmentVariable("TEMP", tmpDir);
+            Environment.SetEnvironmentVariable("TMP", tmpDir);
+        }
+
+        private static void ActivateVenv(string exeDir)
+        {
+            var venvPath = Path.Combine(exeDir, ".venv");
+            var scriptsPath = Path.Combine(venvPath, "Scripts");
+            var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+            Environment.SetEnvironmentVariable("PATH", scriptsPath + ";" + path);
+            Environment.SetEnvironmentVariable("VIRTUAL_ENV", venvPath);
+        }
+
+        private void EnsurePythonRuntime()
+        {
+            var pythonExe = Path.Combine("python", "python.exe");
+            var markerOk = File.Exists(PythonMarkerFile) && File.ReadAllText(PythonMarkerFile).Trim() == PythonVersion;
+            var exeOk = File.Exists(pythonExe);
+            var versionOk = false;
+            if (exeOk)
+            {
+                try
+                {
+                    var output = Run(pythonExe, "--version");
+                    versionOk = ReadVersionFromOutput(output) == PythonVersion;
+                }
+                catch
+                {
+                    versionOk = false;
+                }
+            }
+
+            if (markerOk && exeOk && versionOk)
+            {
+                return;
+            }
+
+            SafeDeleteDirectory("python");
+            SafeDeleteDirectory(".venv");
+
+            LaunchProgress();
+            progress?.SetLabel("Downloading Python");
+            progress?.SetProgress(0);
+
+            if (!Download(PythonDownloadUrl, PythonArchive))
+            {
+                throw new Exception("Python download failed.");
+            }
+
+            var expectedHash = GetExpectedSha256(PythonDownloadUrl);
+            var actualHash = ComputeSha256(PythonArchive);
+            if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception("Python archive checksum mismatch.");
+            }
+
+            progress?.SetLabel("Installing Python");
+            progress?.SetProgress(99);
+            ExtractZipSafe(PythonArchive, ".");
+            File.WriteAllText(PythonMarkerFile, PythonVersion + Environment.NewLine);
+            File.Delete(PythonArchive);
+        }
+
+        private static bool VenvHomeMatchesBundledPython(string exeDir)
+        {
+            var cfg = Path.Combine(exeDir, ".venv", "pyvenv.cfg");
+            if (!File.Exists(cfg))
+            {
+                return false;
+            }
+
+            var expected = Path.GetFullPath(Path.Combine(exeDir, "python")).TrimEnd('\\', '/');
+            foreach (var line in File.ReadAllLines(cfg))
+            {
+                if (!line.StartsWith("home", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var idx = line.IndexOf('=');
+                if (idx < 0)
+                {
+                    continue;
+                }
+
+                var value = line.Substring(idx + 1).Trim().Trim('"').TrimEnd('\\', '/');
+                var actual = Path.GetFullPath(value).TrimEnd('\\', '/');
+                return string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
+        }
+
+        private void EnsureVenv(string exeDir)
+        {
+            var venvPython = Path.Combine(".venv", "Scripts", "python.exe");
+            if (File.Exists(venvPython) && VenvHomeMatchesBundledPython(exeDir))
+            {
+                return;
+            }
+
+            SafeDeleteDirectory(".venv");
+            LaunchProgress();
+            progress?.SetLabel("Creating Environment");
+            progress?.SetProgress(99);
+            Run(Path.Combine("python", "python.exe"), "-m", "venv", ".venv");
+        }
+
+        private void EnsurePip()
+        {
+            var venvPython = Path.Combine(".venv", "Scripts", "python.exe");
+            bool pipOk;
+            try
+            {
+                Run(venvPython, "-m", "pip", "--version");
+                pipOk = true;
+            }
+            catch
+            {
+                pipOk = false;
+            }
+
+            if (!pipOk)
+            {
+                Run(venvPython, "-m", "ensurepip", "--upgrade");
+                Run(venvPython, "-m", "pip", "--version");
+            }
+
+            if (!File.Exists(PipMarkerFile))
+            {
+                LaunchProgress();
+                progress?.SetLabel("Upgrading pip tooling");
+                progress?.SetProgress(0);
+                Run(venvPython, "-m", "pip", "install", "-U", "pip", "setuptools", "wheel", "--no-cache-dir");
+                File.WriteAllText(PipMarkerFile, DateTime.UtcNow.ToString("o") + Environment.NewLine);
+            }
+        }
+
+        private bool VerifyPySideImport(string python)
+        {
+            try
+            {
+                Run(python, "-c", "import PySide6, shiboken6; from PySide6 import QtQml");
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void EnsurePySideAndWrappers()
+        {
+            var venvPython = Path.Combine(".venv", "Scripts", "python.exe");
+            var rcc = Path.Combine(".venv", "Scripts", "pyside6-rcc.exe");
+
+            bool needsInstall = !File.Exists(PySideMarkerFile) || !VerifyPySideImport(venvPython);
+            if (!needsInstall && !File.Exists(rcc))
+            {
+                needsInstall = true;
+            }
+
+            if (needsInstall)
+            {
+                LaunchProgress();
+                progress?.SetLabel("Installing PySide6");
+                progress?.SetProgress(0);
+                Run(venvPython, "-m", "pip", "install", "--no-cache-dir", "PySide6==" + RequiredPySideVersion);
+
+                if (!VerifyPySideImport(venvPython))
+                {
+                    throw new Exception("PySide6 import verification failed after installation.");
+                }
+
+                if (!File.Exists(rcc))
+                {
+                    throw new Exception("Missing required wrapper: .venv\\Scripts\\pyside6-rcc.exe");
+                }
+
+                File.WriteAllText(PySideMarkerFile, DateTime.UtcNow.ToString("o") + Environment.NewLine);
+            }
+            else if (!File.Exists(rcc))
+            {
+                throw new Exception("Missing required wrapper: .venv\\Scripts\\pyside6-rcc.exe");
+            }
+        }
+
         public void Work(string[] args)
         {
             var exe = Assembly.GetEntryAssembly().Location;
@@ -310,92 +634,33 @@ namespace qDiffusion
                 return;
             }
 
-            if (!Directory.Exists("python"))
+            try
             {
-                try
-                {
-                    using (FileStream fs = File.Create(Path.GetRandomFileName(), 1, FileOptions.DeleteOnClose)) { }
-                }
-                catch
-                {
-                    LaunchError("Write failed. Please extract the ZIP archive to a folder with write permissions.");
-                    return;
-                }
-
-                LaunchProgress();
-                progress?.SetLabel("Downloading Python");
-
-                var python_file = "python-3.10.11.tar.gz";
-                var python_url = "https://github.com/arenasys/binaries/releases/download/v1/cpython-3.10.11+20230507-x86_64-pc-windows-msvc-shared-install_only.tar.gz";
-                if(!Download(python_url, python_file))
-                {
-                    progress?.DoClose();
-                    return;
-                }
-
-                progress?.SetLabel("Installing Python");
-                ExtractTarGz(python_file, ".");
-
-                File.Delete(python_file);
+                ConfigureCleanEnvironment(exe_dir);
+                EnsurePythonRuntime();
+                EnsureVenv(exe_dir);
+                ActivateVenv(exe_dir);
+                EnsurePip();
+                EnsurePySideAndWrappers();
+            }
+            catch (Exception ex)
+            {
+                progress?.DoClose();
+                LaunchError(ex.Message);
+                return;
             }
 
-            foreach (DictionaryEntry de in Environment.GetEnvironmentVariables())
-            {
-                var key = (string)de.Key;
-                if (key.StartsWith("QT") || key.StartsWith("PIP") || key.StartsWith("PYTHON"))
-                {
-                    Environment.SetEnvironmentVariable(key, null);
-                }
-            }
-
-            var python = ".\\python\\pythonw.exe";
-
-            if (!Directory.Exists("venv"))
-            {
-                LaunchProgress();
-                progress?.SetLabel("Creating Environment");
-                progress?.SetProgress(99);
-
-                try
-                {
-                    Run(python, "-m", "venv", "venv");
-                }
-                catch (Exception ex)
-                {
-                    LaunchError(ex.Message);
-                    progress?.DoClose();
-                    return;
-                }
-            }
-
-            // Activate VENV
-            var path = Environment.GetEnvironmentVariable("PATH");
-            Environment.SetEnvironmentVariable("PATH", Path.Combine(exe_dir, "venv", "Scripts") + ";" + path);
-            Environment.SetEnvironmentVariable("VIRTUAL_ENV", Path.Combine(exe_dir, "venv"));
-            Environment.SetEnvironmentVariable("PIP_CONFIG_FILE", "nul");
-
-            // Register qdiffusion:// protocol handler
             RegisterProtocol(exe);
 
-            python = ".\\venv\\Scripts\\pythonw.exe";
-
-            // Set AMD variables
             Environment.SetEnvironmentVariable("HSA_OVERRIDE_GFX_VERSION", "10.3.0");
             Environment.SetEnvironmentVariable("MIOPEN_LOG_LEVEL", "4");
-
-            if (!Directory.Exists("venv\\Lib\\site-packages\\PySide6"))
-            {
-                LaunchProgress();
-                progress?.SetLabel("Installing GUI requirements");
-                progress?.SetProgress(0);
-
-                Run(python, "-m", "pip", "install", "-r", "source\\requirements_gui.txt");
-            }
 
             progress?.DoClose();
             try
             {
-                string[] cmd = { python, "source\\main.py" };
+                string pythonw = Path.Combine(".venv", "Scripts", "pythonw.exe");
+                string python = File.Exists(pythonw) ? pythonw : Path.Combine(".venv", "Scripts", "python.exe");
+                string[] cmd = { python, Path.Combine("source", "main.py") };
                 Launch(cmd.Concat(args).ToArray());
             }
             catch (Exception ex)
