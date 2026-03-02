@@ -49,7 +49,7 @@ ApplicationWindow {
             if(component.status != Component.Ready) {
                 console.log("ERROR", component.errorString())
             } else {
-                installer = component.incubateObject(root, { window: root, spinner: spinner })
+                installer = component.createObject(root, { window: root, spinner: spinner })
             }
         }
 
@@ -58,7 +58,7 @@ ApplicationWindow {
             if(component.status != Component.Ready) {
                 console.log("ERROR", component.errorString())
             } else {
-                component.incubateObject(root, { window: root, spinner: spinner })
+                component.createObject(root, { window: root, spinner: spinner })
             }
         }
     }
