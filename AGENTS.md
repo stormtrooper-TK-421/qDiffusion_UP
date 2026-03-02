@@ -21,8 +21,8 @@ This file defines repository-specific operating rules for contributors and codin
   - `QSG_RHI_DISABLE_SHADER_DISK_CACHE=1`
 
 ## Inference server source policy
-- **No runtime git clones.** The inference server must be present in-repo via vendoring or submodule.
-- Do not clone inference dependencies at application launch/runtime.
+- **ONLY cloning allowed is via `scripts/fetch_sd_infer.py` into `.third_party/`.**
+- Treat `.third_party/` as read-only external code; do not edit it in port tickets.
 
 ## QML loading policy (PySide6 port target)
 - Once the PySide6 port is complete, QML must load from `qrc:/` paths.
