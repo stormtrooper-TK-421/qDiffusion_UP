@@ -9,13 +9,11 @@ import platform
 import urllib.parse
 IS_WIN = platform.system() == 'Windows'
 
-from PyQt5.QtCore import pyqtSlot, pyqtProperty, pyqtSignal, QObject, Qt, QEvent, QMimeData, QUrl, QSize, QThreadPool
-from PyQt5.QtQuick import QQuickItem, QQuickPaintedItem
-from PyQt5.QtGui import QImage, QColor, QDrag, QDesktopServices
-from PyQt5.QtQml import qmlRegisterType
-from PyQt5.QtWidgets import QApplication
-
-from PyQt5.QtQuick import QQuickTextDocument
+from PySide6.QtCore import Slot as pyqtSlot, Property as pyqtProperty, Signal as pyqtSignal, QObject, Qt, QEvent, QMimeData, QUrl, QSize, QThreadPool
+from PySide6.QtQuick import QQuickItem, QQuickPaintedItem, QQuickTextDocument
+from PySide6.QtGui import QImage, QColor, QDrag, QDesktopServices
+from PySide6.QtQml import qmlRegisterType
+from PySide6.QtWidgets import QApplication
 from enum import Enum
 
 import sql
@@ -27,6 +25,8 @@ import wildcards
 import translation
 import misc
 import parameters
+
+from paths import resource_path
 
 NAME = "qDiffusion"
 
@@ -415,7 +415,7 @@ class GUI(QObject):
             trace = ""
             if "trace" in data:
                 trace = data["trace"]
-                with open("crash.log", "a", encoding='utf-8') as f:
+                with open(resource_path("crash.log"), "a", encoding='utf-8') as f:
                     f.write(f"INFERENCE {datetime.datetime.now()}\n{self._errorTrace}\n")
             self.setError(self._statusText, data["message"], trace)
             self.reset.emit(id)
@@ -426,7 +426,7 @@ class GUI(QObject):
             self._errorTrace = ""
             if "trace" in data:
                 self._errorTrace = data["trace"]
-                with open("crash.log", "a", encoding='utf-8') as f:
+                with open(resource_path("crash.log"), "a", encoding='utf-8') as f:
                     f.write(f"REMOTE {datetime.datetime.now()}\n{self._errorTrace}\n")
             self._remoteStatus = RemoteStatusMode.ERRORED
             self.statusUpdated.emit()
@@ -699,11 +699,16 @@ class GUI(QObject):
                 self._errorText = str(e)
                 self.errorUpdated.emit()
 
+    def _resolve_repo_path(self, path):
+        if not path:
+            return resource_path("")
+        return resource_path(path)
+
     def modelDirectory(self):
-        return self._config._values.get("model_directory")
+        return self._resolve_repo_path(self._config._values.get("model_directory"))
     
     def outputDirectory(self):
-        return self._config._values.get("output_directory")
+        return self._resolve_repo_path(self._config._values.get("output_directory"))
     
     @pyqtSlot()
     def watchModelDirectory(self):
@@ -816,19 +821,20 @@ class GUI(QObject):
         if self._favourites == None:
             data = []
             try:
-                with open("fav.json", 'r', encoding="utf-8") as f:
+                with open(resource_path("fav.json"), 'r', encoding="utf-8") as f:
                     data = json.load(f)
             except Exception:
                 pass
             self._favourites = data
         else:
             if self._favourites == []:
-                if os.path.exists("fav.json"):
-                    os.remove("fav.json")
+                fav_file = resource_path("fav.json")
+                if os.path.exists(fav_file):
+                    os.remove(fav_file)
             else:
                 data = list(self._favourites)
                 try:
-                    with open("fav.json", 'w', encoding="utf-8") as f:
+                    with open(resource_path("fav.json"), 'w', encoding="utf-8") as f:
                         json.dump(data, f, indent=4)
                 except Exception:
                     pass
@@ -844,19 +850,20 @@ class GUI(QObject):
         if self._defaults == None:
             data = {}
             try:
-                with open("defaults.json", 'r', encoding="utf-8") as f:
+                with open(resource_path("defaults.json"), 'r', encoding="utf-8") as f:
                     data = json.load(f)
             except Exception:
                 pass
             self._defaults = data
         else:
             if self._defaults == {}:
-                if os.path.exists("defaults.json"):
-                    os.remove("defaults.json")
+                defaults_file = resource_path("defaults.json")
+                if os.path.exists(defaults_file):
+                    os.remove(defaults_file)
             else:
                 data = dict(self._defaults)
                 try:
-                    with open("defaults.json", 'w', encoding="utf-8") as f:
+                    with open(resource_path("defaults.json"), 'w', encoding="utf-8") as f:
                         json.dump(data, f, indent=4)
                 except Exception:
                     pass
