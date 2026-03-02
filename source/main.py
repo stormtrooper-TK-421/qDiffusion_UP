@@ -21,10 +21,10 @@ import platform
 IS_WIN = platform.system() == 'Windows'
 IS_MAC = platform.system() == 'Darwin'
 
-from PyQt5.QtCore import pyqtSignal, pyqtSlot, pyqtProperty, QObject, QUrl, QCoreApplication, Qt, QElapsedTimer, QThread
-from PyQt5.QtQml import QQmlApplicationEngine, qmlRegisterSingletonType, qmlRegisterType
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtGui import QIcon
+from PySide6.QtCore import Signal as pyqtSignal, Slot as pyqtSlot, Property as pyqtProperty, QObject, QUrl, QCoreApplication, Qt, QElapsedTimer, QThread
+from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterSingletonType, qmlRegisterType
+from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QIcon, QGuiApplication
 
 from translation import Translator
 
@@ -62,7 +62,9 @@ def buildQMLRc():
     items += glob.glob(os.path.join(qml_path, "fonts", "*.ttf"))
     items += glob.glob(os.path.join(qml_path, "icons", "*.svg"))
 
-    items = ''.join([f"\t\t<file>{os.path.relpath(f, qml_path )}</file>\n" for f in items])
+    items = sorted({item.replace("\\", "/") for item in items})
+
+    items = ''.join([f"\t\t<file>{os.path.relpath(f, qml_path).replace('\\\\', '/')}</file>\n" for f in items])
 
     contents = f"""<RCC>\n\t<qresource prefix="/">\n{items}\t</qresource>\n</RCC>"""
 
@@ -82,7 +84,7 @@ def buildQMLPy():
         startupinfo = subprocess.STARTUPINFO()
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
-    status = subprocess.run(["pyrcc5", "-o", qml_py, qml_rc], capture_output=True, startupinfo=startupinfo)
+    status = subprocess.run(["pyside6-rcc", "-o", qml_py, qml_rc], capture_output=True, startupinfo=startupinfo)
     if status.returncode != 0:
         raise Exception(status.stderr)
 
@@ -464,12 +466,15 @@ class Coordinator(QObject):
 
     @pyqtProperty(float, constant=True)
     def scale(self):
+        primary_screen = QGuiApplication.primaryScreen()
+        if not primary_screen:
+            return 1.0
+
+        factor = round(primary_screen.logicalDotsPerInch() * (100/96))
         if IS_WIN:
-            factor = round(self.parent().desktop().logicalDpiX()*(100/96))
             if factor == 125:
                 return 0.82
         if IS_MAC:
-            factor = round(self.parent().desktop().logicalDpiX()*(100/96))
             if factor == 75:
                 return 1.25
         return 1.0
@@ -486,9 +491,8 @@ def launch(url):
     if IS_WIN:
         misc.setAppID(APPID)
     
-    QCoreApplication.setAttribute(Qt.AA_UseDesktopOpenGL, True)
-    QCoreApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-    QCoreApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+    QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_UseDesktopOpenGL, True)
+    QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
 
     scaling = False
     try:
@@ -515,7 +519,7 @@ def launch(url):
     translator = Translator(app)
     coordinator = Coordinator(app, engine)
 
-    engine.load(QUrl('file:source/qml/Splash.qml'))
+    engine.load(QUrl("qrc:/Splash.qml"))
 
     if IS_WIN:
         hwnd = engine.rootObjects()[0].winId()
