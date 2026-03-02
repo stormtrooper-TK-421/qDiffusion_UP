@@ -481,6 +481,11 @@ class Coordinator(QObject):
     
 def launch(url):
     import misc
+    import gui
+    import sql
+    import canvas
+    import parameters
+    import manager
 
     if url:
         sgnl = misc.Signaller()
@@ -515,11 +520,38 @@ def launch(url):
     
     engine = QQmlApplicationEngine()
     engine.quit.connect(app.quit)
+
+    sql.registerTypes()
+    canvas.registerTypes()
+    canvas.registerMiscTypes()
+    parameters.registerTypes()
+    manager.registerTypes()
+    misc.registerTypes()
+
+    backend = gui.GUI(parent=app)
+    app.backend = backend
+
+    engine.addImageProvider("sync", backend.thumbnails.sync_provider)
+    engine.addImageProvider("async", backend.thumbnails.async_provider)
+    engine.addImageProvider("big", backend.thumbnails.big_provider)
+
+    qmlRegisterSingletonType(gui.GUI, "gui", 1, 0, "GUI", lambda qml, js: backend)
     
     translator = Translator(app)
     coordinator = Coordinator(app, engine)
 
-    engine.load(QUrl("qrc:/Splash.qml"))
+    try:
+        import qml.qml_rc
+        splash_url = QUrl("qrc:/Splash.qml")
+    except ImportError:
+        splash_path = os.path.abspath(os.path.join("source", "qml", "Splash.qml"))
+        splash_url = QUrl.fromLocalFile(splash_path)
+
+    engine.load(splash_url)
+
+    if not engine.rootObjects():
+        print("CRITICAL: Failed to load Splash.qml. Engine root objects is empty.")
+        sys.exit(-1)
 
     if IS_WIN:
         hwnd = engine.rootObjects()[0].winId()
@@ -529,32 +561,12 @@ def launch(url):
 
 def ready():
     import qml.qml_rc
-    import misc
     qmlRegisterSingletonType(QUrl("qrc:/Common.qml"), "gui", 1, 0, "COMMON")
-    misc.registerTypes()
 
 def start(engine, app):
-    import gui
-    import sql
-    import canvas
-    import parameters
-    import manager
-
-    sql.registerTypes()
-    canvas.registerTypes()
-    canvas.registerMiscTypes()
-    parameters.registerTypes()
-    manager.registerTypes()
-
-    backend = gui.GUI(parent=app)
-
-    engine.addImageProvider("sync", backend.thumbnails.sync_provider)
-    engine.addImageProvider("async", backend.thumbnails.async_provider)
-    engine.addImageProvider("big", backend.thumbnails.big_provider)
-
-    qmlRegisterSingletonType(gui.GUI, "gui", 1, 0, "GUI", lambda qml, js: backend)
-    
-    loadTabs(backend, backend)
+    backend = getattr(app, "backend", None)
+    if backend:
+        loadTabs(backend, backend)
 
 def exceptHook(exc_type, exc_value, exc_tb):
     global ERRORED
