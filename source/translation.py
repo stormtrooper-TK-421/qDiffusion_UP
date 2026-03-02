@@ -1,9 +1,11 @@
-from PyQt5.QtCore import pyqtProperty, pyqtSlot, pyqtSignal, QObject, QUrl
-from PyQt5.QtQml import qmlRegisterSingletonType, qmlRegisterUncreatableType
+from PySide6.QtCore import Property as pyqtProperty, Slot as pyqtSlot, Signal as pyqtSignal, QObject
+from PySide6.QtQml import qmlRegisterSingletonType, qmlRegisterUncreatableType
 
 import json
 import os
 import glob
+
+from paths import resource_path
 
 class TranslatorInstance(QObject):
     def __init__(self, parent):
@@ -29,20 +31,21 @@ class Translator(QObject):
 
         self._capture = None
         try:
-            if os.path.exists("capture.json"):
+            capture_file = resource_path("capture.json")
+            if os.path.exists(capture_file):
                 self._capture = {}
-                with open("capture.json", 'r', encoding="utf-8") as f:
+                with open(capture_file, 'r', encoding="utf-8") as f:
                     self._capture = json.load(f)
         except Exception:
             pass
 
         qmlRegisterUncreatableType(TranslatorInstance, "gui", 1, 0, "TranslationInstance", "Not a QML type")
-        qmlRegisterSingletonType(Translator, "gui", 1, 0, "TRANSLATOR", lambda qml, js: self)
+        qmlRegisterSingletonType(Translator, "gui", 1, 0, "TRANSLATOR", lambda _engine: self)
 
     @pyqtSlot()
     def loadLanguages(self):
         self._languages = {}
-        for file in glob.glob(os.path.join("source", "languages", "*.json")):
+        for file in glob.glob(resource_path(os.path.join("source", "languages", "*.json"))):
             try:
                 name = file.rsplit(os.path.sep, 1)[-1].split(".", 1)[0]
                 with open(file, 'r', encoding="utf-8") as f:
@@ -67,7 +70,7 @@ class Translator(QObject):
         if self._language == name:
             self.updated.emit()
     
-    @pyqtProperty(TranslatorInstance, notify=updated)
+    @pyqtProperty(QObject, notify=updated)
     def instance(self):
         return self._instance
     
@@ -99,7 +102,7 @@ class Translator(QObject):
             t = self._capture
             ordered = {f:{k:t[f][k] for k in sorted(t[f].keys())} for f in sorted(t.keys())}
             try:
-                with open("capture.json", 'w', encoding="utf-8") as f:
+                with open(resource_path("capture.json"), 'w', encoding="utf-8") as f:
                     json.dump(ordered, f, indent=4)
             except Exception:
                 pass

@@ -1,14 +1,15 @@
 import json
 
-from PyQt5.QtCore import pyqtSlot, pyqtProperty, pyqtSignal, QObject, QThread
+from PySide6.QtCore import Slot as pyqtSlot, Signal as pyqtSignal, QObject
 
 from parameters import VariantMap
+from paths import resource_path
 
 class Config(QObject):
     updated = pyqtSignal()
     def __init__(self, parent, file, defaults):
         super().__init__(parent)
-        self._file = file
+        self._file = resource_path(file)
         self._defaults = defaults
         self._values = VariantMap(self, defaults.copy())
         self.loadConfig()
