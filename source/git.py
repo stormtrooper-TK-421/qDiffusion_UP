@@ -3,8 +3,7 @@ import time
 import pygit2
 
 QDIFF_URL = "https://github.com/arenasys/qDiffusion"
-INFER_URL = "https://github.com/arenasys/sd-inference-server"
-TRAIN_URL = "https://github.com/arenasys/sd-scripts"
+INFER_URL = "https://github.com/stromtroopertk421/sd-inference-server"
 
 def git_repair(repo, origin):
     repo.remotes.delete("origin")
@@ -58,5 +57,3 @@ def git_init(path, origin):
         repo.create_remote("origin", origin)
     git_reset(path, origin)
 
-def git_clone(path, origin):
-    pygit2.clone_repository(origin, path)

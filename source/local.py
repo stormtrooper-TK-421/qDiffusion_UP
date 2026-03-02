@@ -16,7 +16,14 @@ IS_WIN = platform.system() == 'Windows'
 from PyQt5.QtCore import pyqtSlot, pyqtSignal, QThread
 from PyQt5.QtWidgets import QApplication
 
-import git
+def get_inference_server_path():
+    infer_path = os.path.abspath(os.path.join("source", "sd-inference-server"))
+    if not os.path.isdir(infer_path):
+        raise FileNotFoundError(
+            "Missing vendored inference server at source/sd-inference-server. "
+            "Initialize submodules (git submodule update --init --recursive)."
+        )
+    return infer_path
 
 def log_traceback(label):
     exc_type, exc_value, exc_tb = sys.exc_info()
@@ -36,16 +43,7 @@ class InferenceProcessThread(threading.Thread):
         self.current = None
         self.cancelled = set()
 
-        infer_path = os.path.join("source", "sd-inference-server")
-
-        if not os.path.exists(infer_path):
-            self.responses.put({"type":"status", "data":{"message":"Downloading"}})
-            git.git_clone(infer_path, git.INFER_URL)
-
-        train_path = os.path.join(infer_path, "training")
-        if not os.path.exists(train_path):
-            self.responses.put({"type":"status", "data":{"message":"Downloading"}})
-            git.git_clone(train_path, git.TRAIN_URL)
+        infer_path = get_inference_server_path()
 
         if not os.path.exists(model_directory):
             shutil.copytree(os.path.join(infer_path, "models"), model_directory)

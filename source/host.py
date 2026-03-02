@@ -16,6 +16,15 @@ from PyQt5.QtWidgets import QApplication
 
 import remote
 
+def get_inference_server_path():
+    infer_path = os.path.abspath(os.path.join("source", "sd-inference-server"))
+    if not os.path.isdir(infer_path):
+        raise FileNotFoundError(
+            "Missing vendored inference server at source/sd-inference-server. "
+            "Initialize submodules (git submodule update --init --recursive)."
+        )
+    return infer_path
+
 def log_traceback(label):
     exc_type, exc_value, exc_tb = sys.exc_info()
     tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
@@ -48,7 +57,7 @@ class HostProcess(multiprocessing.Process):
             sys.stderr = open(os.devnull, 'w')
             sys.__stderr__ = sys.stderr
         
-        sys.path.insert(0, os.path.abspath(os.path.join("source", "sd-inference-server")))
+        sys.path.insert(0, get_inference_server_path())
         import torch
         import storage, wrapper, server
 
