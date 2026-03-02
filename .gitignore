@@ -8,6 +8,7 @@ __pycache__/
 venv/
 .venv/
 .tmp/
+.third_party/
 .cache/
 .pytest_cache/
 models/

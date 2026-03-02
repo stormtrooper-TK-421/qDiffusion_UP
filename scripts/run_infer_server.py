@@ -3,14 +3,30 @@
 
 from __future__ import annotations
 
-from env_common import run_with_venv
+from pathlib import Path
+
+from env_common import REPO_ROOT, run_with_venv
+
+FETCH_SCRIPT = Path("scripts/fetch_sd_infer.py")
+INFER_SERVER = Path(".third_party/sd-inference-server/server.py")
+
+
+def ensure_infer_server_present() -> None:
+    fetch_rc = run_with_venv([str(FETCH_SCRIPT)])
+    if fetch_rc != 0:
+        raise SystemExit(fetch_rc)
+
+    server_path = REPO_ROOT / INFER_SERVER
+    if not server_path.is_file():
+        raise SystemExit(f"Missing inference server entrypoint after fetch: {server_path}")
 
 
 if __name__ == "__main__":
+    ensure_infer_server_present()
     raise SystemExit(
         run_with_venv(
             [
-                "source/sd-inference-server/server.py",
+                str(INFER_SERVER),
                 "--host",
                 "127.0.0.1",
                 "--port",
