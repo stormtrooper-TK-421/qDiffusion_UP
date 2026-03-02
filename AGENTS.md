@@ -3,12 +3,11 @@
 This file defines repository-specific operating rules for contributors and coding agents.
 
 ## Python environment and isolation
-- **No system python contamination.** Always run commands through this repository's virtual environments, never through system/global Python.
+- **No system python contamination.** Always run commands through this repository's virtual environment, never through system/global Python.
 - Always set `PYTHONNOUSERSITE=1` for Python tooling and runtime commands.
-- **Two-venv design is mandatory:**
-  - `.venv_gui` for the PySide6 GUI toolchain.
-  - `.venv_infer` for torch/diffusers/inference dependencies.
-- Do not mix dependencies across those environments.
+- **Single-venv design is mandatory:**
+  - `.venv` for GUI + inference dependencies.
+  - `.tmp` for disposable runtime/cache artifacts.
 - Forbid execution against global site-packages.
 
 ## Cache and bytecode policy
