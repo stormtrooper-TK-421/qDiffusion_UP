@@ -1,6 +1,6 @@
-import QtQuick 2.15
+import QtQuick
 
-import gui 1.0
+import gui
 
 Rectangle {
     id: root

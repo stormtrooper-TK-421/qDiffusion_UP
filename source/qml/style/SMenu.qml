@@ -1,8 +1,8 @@
-import QtQuick 2.12
-import QtQuick.Controls 2.12
+import QtQuick
+import QtQuick.Controls
 import Qt5Compat.GraphicalEffects
 
-import gui 1.0
+import gui
 
 Menu {
     id: root
