@@ -15,7 +15,8 @@ VENV_DIR = REPO_ROOT / ".venv"
 TMP_ROOT = REPO_ROOT / ".tmp"
 ML_CACHE_ROOT = TMP_ROOT / "ml_cache"
 GUI_REQUIREMENTS = REPO_ROOT / "requirements" / "gui.txt"
-INFER_REQUIREMENTS = REPO_ROOT / "source" / "sd-inference-server" / "requirements.txt"
+FETCH_INFER_SCRIPT = REPO_ROOT / "scripts" / "fetch_sd_infer.py"
+INFER_REQUIREMENTS = REPO_ROOT / ".third_party" / "sd-inference-server" / "requirements.txt"
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,11 +46,16 @@ def _require_file(path: Path, description: str) -> None:
         raise SystemExit(f"Missing {description}: {path}")
 
 
+def ensure_infer_server_checkout(env: dict[str, str]) -> None:
+    _require_file(FETCH_INFER_SCRIPT, "inference fetch script")
+    run([sys.executable, str(FETCH_INFER_SCRIPT)], env=env)
+
+
 def _require_infer_requirements() -> None:
     if not INFER_REQUIREMENTS.is_file():
         raise SystemExit(
-            "Missing inference requirements: vendor/submodule sd-inference-server into "
-            "source/sd-inference-server"
+            "Missing inference requirements: expected cloned repository at "
+            ".third_party/sd-inference-server"
         )
 
 
@@ -129,6 +135,7 @@ def install_requirements(mode: str, env: dict[str, str]) -> None:
         run([*pip_base_cmd, "-r", str(GUI_REQUIREMENTS)], env=env)
 
     if mode in ("infer", "all"):
+        ensure_infer_server_checkout(env)
         _require_infer_requirements()
         run([*pip_base_cmd, "-r", str(INFER_REQUIREMENTS)], env=env)
 
