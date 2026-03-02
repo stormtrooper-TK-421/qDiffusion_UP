@@ -153,7 +153,7 @@ class Trainer(QObject):
 
         self.reset()
 
-        qmlRegisterSingletonType(Trainer, "gui", 1, 0, "TRAINER", lambda qml, js: self)
+        qmlRegisterSingletonType(Trainer, "gui", 1, 0, "TRAINER", lambda _qml, _js, obj=self: obj)
         self.gui.optionsUpdated.connect(self.optionsUpdated)
         self.gui.response.connect(self.onResponse)
 

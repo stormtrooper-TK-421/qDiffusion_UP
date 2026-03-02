@@ -40,7 +40,7 @@ class Translator(QObject):
             pass
 
         qmlRegisterUncreatableType(TranslatorInstance, "gui", 1, 0, "TranslationInstance", "Not a QML type")
-        qmlRegisterSingletonType(Translator, "gui", 1, 0, "TRANSLATOR", lambda _engine: self)
+        qmlRegisterSingletonType(Translator, "gui", 1, 0, "TRANSLATOR", lambda _qml, _js, obj=self: obj)
 
     @pyqtSlot()
     def loadLanguages(self):

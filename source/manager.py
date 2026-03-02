@@ -1,5 +1,4 @@
 import os
-import time
 import datetime
 import io
 import PIL.Image
@@ -8,7 +7,7 @@ import re
 import threading
 import enum
 
-from PySide6.QtCore import Slot, Property, Signal, QObject, Qt, QSize, QRect, QRectF, QCoreApplication
+from PySide6.QtCore import Slot, Property, Signal, QObject, Qt, QSize, QRect, QRectF
 from PySide6.QtGui import QImage, QPainter, QColor, QFont, QTextOption
 from PySide6.QtQml import qmlRegisterUncreatableType
 
@@ -279,10 +278,7 @@ class RequestManager(QObject):
 
         builder = BuilderRunnable(self, inputs)
         builder.start()
-
-        while not builder.done:
-            QCoreApplication.processEvents()
-            time.sleep(1/60)
+        builder.join()
 
         found, links, controls, segmentation = builder.results
         
