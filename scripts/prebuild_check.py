@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import subprocess
-import sys
 from pathlib import Path
 
 from env_common import REPO_ROOT, build_env, venv_python
@@ -30,12 +29,21 @@ def _run_python(args: list[str], *, label: str, extra_env: dict[str, str] | None
         raise SystemExit(f"{label} failed with exit code {completed.returncode}")
 
 
+def _iter_repo_files(*, suffixes: tuple[str, ...], excluded_dirs: set[str]) -> list[Path]:
+    paths: list[Path] = []
+    for suffix in suffixes:
+        for path in REPO_ROOT.rglob(f"*{suffix}"):
+            if excluded_dirs.intersection(path.parts):
+                continue
+            paths.append(path)
+    return paths
+
+
 def _assert_no_pyqt5_imports() -> None:
     excluded_dirs = {".git", ".venv", ".tmp", ".third_party", "__pycache__"}
     violations: list[str] = []
-    for path in REPO_ROOT.rglob("*.py"):
-        if excluded_dirs.intersection(path.parts):
-            continue
+
+    for path in _iter_repo_files(suffixes=(".py",), excluded_dirs=excluded_dirs):
         if path.name == "prebuild_check.py":
             continue
         content = path.read_text(encoding="utf-8")
@@ -47,10 +55,19 @@ def _assert_no_pyqt5_imports() -> None:
                 rel_path = path.relative_to(REPO_ROOT)
                 violations.append(f"{rel_path}:{line_no}: {stripped}")
 
+    for path in _iter_repo_files(suffixes=(".qml",), excluded_dirs=excluded_dirs):
+        content = path.read_text(encoding="utf-8")
+        if "PyQt5" not in content:
+            continue
+        rel_path = path.relative_to(REPO_ROOT)
+        for line_no, line in enumerate(content.splitlines(), start=1):
+            if "PyQt5" in line:
+                violations.append(f"{rel_path}:{line_no}: {line.strip()}")
+
     if violations:
         joined = "\n".join(sorted(violations))
-        raise SystemExit("Found forbidden PyQt5 imports:\n" + joined)
-    print("[prebuild] PyQt5 import guard passed.")
+        raise SystemExit("Found forbidden PyQt5 references:\n" + joined)
+    print("[prebuild] PyQt5 import/reference guard passed.")
 
 
 def _assert_sd_inference_server_present() -> None:

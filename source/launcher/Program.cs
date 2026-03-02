@@ -383,29 +383,16 @@ namespace qDiffusion
             Environment.SetEnvironmentVariable("HSA_OVERRIDE_GFX_VERSION", "10.3.0");
             Environment.SetEnvironmentVariable("MIOPEN_LOG_LEVEL", "4");
 
-            if (!Directory.Exists("venv\\Lib\\site-packages\\PyQt5"))
+            if (!Directory.Exists("venv\\Lib\\site-packages\\PySide6"))
             {
                 LaunchProgress();
-                progress?.SetLabel("Downloading PyQT5");
+                progress?.SetLabel("Installing GUI requirements");
                 progress?.SetProgress(0);
 
-                var pyqt_file = "PyQt5-5.15.7-cp37-abi3-win_amd64.whl";
-                var pyqt_url = "https://github.com/arenasys/binaries/releases/download/v1/PyQt5-5.15.7-cp37-abi3-win_amd64.whl";
-                if (!Download(pyqt_url, pyqt_file))
-                {
-                    progress?.DoClose();
-                    return;
-                }
-
-                progress?.SetLabel("Installing PyQT5");
-
-                Run(python, "-m", "pip", "install", pyqt_file);
-
-                File.Delete(pyqt_file);
+                Run(python, "-m", "pip", "install", "-r", "source\\requirements_gui.txt");
             }
 
             progress?.DoClose();
-
             try
             {
                 string[] cmd = { python, "source\\main.py" };
