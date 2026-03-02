@@ -1,9 +1,9 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
+import QtQuick
+import QtQuick.Controls
 import Qt5Compat.GraphicalEffects
-import Qt.labs.platform 1.1
+import Qt.labs.platform
 
-import gui 1.0
+import gui
 import "../../style"
 import "../../components"
 
