@@ -13,4 +13,5 @@ if __name__ == "__main__":
         "QT_QPA_PLATFORM": "offscreen",
         "QDIFFUSION_QML_SMOKE_ARGS": "--no-effects",
     }
-    raise SystemExit(run_with_venv(["-m", "pytest", *sys.argv[1:]], extra_env=extra_env))
+    pytest_args = sys.argv[1:] or ["tests"]
+    raise SystemExit(run_with_venv(["-m", "pytest", *pytest_args], extra_env=extra_env))

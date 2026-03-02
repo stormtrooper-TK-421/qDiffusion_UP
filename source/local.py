@@ -6,7 +6,7 @@ import threading
 import time
 from pathlib import Path
 
-from PyQt5.QtCore import pyqtSlot, pyqtSignal
+from PySide6.QtCore import Slot as pyqtSlot, Signal as pyqtSignal
 
 import remote
 
