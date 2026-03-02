@@ -301,7 +301,7 @@ class Merger(QObject):
             "strength": 1.0
         })
 
-        qmlRegisterSingletonType(Merger, "gui", 1, 0, "MERGER", lambda qml, js: self)
+        qmlRegisterSingletonType(Merger, "gui", 1, 0, "MERGER", lambda _qml, _js, obj=self: obj)
         qmlRegisterUncreatableType(MergeOperation, "gui", 1, 0, "MergeOperation", "Not a QML type")
 
         self._operations = []

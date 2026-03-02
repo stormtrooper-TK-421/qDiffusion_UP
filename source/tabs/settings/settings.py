@@ -27,7 +27,7 @@ class Settings(QObject):
         self._currentUpload = ""
         self._currentUploadMode = 0
 
-        qmlRegisterSingletonType(Settings, "gui", 1, 0, "SETTINGS", lambda qml, js: self)
+        qmlRegisterSingletonType(Settings, "gui", 1, 0, "SETTINGS", lambda _qml, _js, obj=self: obj)
 
         self._needRestart = False
         self._currentGitInfo = None

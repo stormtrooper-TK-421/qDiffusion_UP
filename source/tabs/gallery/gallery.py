@@ -191,7 +191,7 @@ class Gallery(QObject):
 
         self._cellSize = 200
 
-        qmlRegisterSingletonType(Gallery, "gui", 1, 0, "GALLERY", lambda qml, js: self)
+        qmlRegisterSingletonType(Gallery, "gui", 1, 0, "GALLERY", lambda _qml, _js, obj=self: obj)
 
         self.populater = Populater(self.gui, self.name)
         self.populater.forceReload.connect(self.populaterForcedReload)

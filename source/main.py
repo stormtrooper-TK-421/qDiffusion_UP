@@ -12,10 +12,13 @@ import os
 import glob
 import shutil
 import importlib
-import pkg_resources
 import json
 import hashlib
 import argparse
+
+from importlib.metadata import PackageNotFoundError, distribution, version
+
+from packaging.requirements import Requirement
 
 import platform
 IS_WIN = platform.system() == 'Windows'
@@ -84,6 +87,17 @@ def buildQMLPy():
         startupinfo = subprocess.STARTUPINFO()
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
+    version_status = subprocess.run(["pyside6-rcc", "--version"], capture_output=True, text=True, startupinfo=startupinfo)
+    if version_status.returncode == 0:
+        rcc_version = (version_status.stdout or version_status.stderr).strip()
+        try:
+            import PySide6
+            expected = f"{PySide6.__version__}"
+            if expected and expected not in rcc_version:
+                print(f"WARNING: pyside6-rcc version mismatch. Expected PySide6 {expected}, got '{rcc_version}'.")
+        except Exception:
+            pass
+
     status = subprocess.run(["pyside6-rcc", "-o", qml_py, qml_rc], capture_output=True, startupinfo=startupinfo)
     if status.returncode != 0:
         raise Exception(status.stderr)
@@ -125,18 +139,16 @@ class Builder(QThread):
         buildQMLPy()
 
 def check(dependancies, enforce_version=True):
-    importlib.reload(pkg_resources)
     needed = []
     for d in dependancies:
         try:
-            pkg_resources.require(d)
-        except pkg_resources.DistributionNotFound as e:
-            #print("MISSING", d, e)
-            needed += [d]
-        except pkg_resources.VersionConflict as e:
-            if enforce_version:
-                #print("CONFLICT", d, e)
+            req = Requirement(d)
+            dist = distribution(req.name)
+
+            if enforce_version and req.specifier and not req.specifier.contains(dist.version):
                 needed += [d]
+        except PackageNotFoundError:
+            needed += [d]
         except Exception:
             pass
     return needed
@@ -257,10 +269,7 @@ class Coordinator(QObject):
 
         with open(os.path.join("source", "requirements_inference.txt")) as file:
             self.optional = [line.rstrip() for line in file]
-
         self.find_needed()
-
-        qmlRegisterSingletonType(Coordinator, "gui", 1, 0, "COORDINATOR", lambda qml, js: self)
 
     def find_needed(self):
         self.torch_version = ""
@@ -268,18 +277,18 @@ class Coordinator(QObject):
         self.directml_version = ""
 
         try:
-            self.torch_version = str(pkg_resources.get_distribution("torch")).split()[-1]
-        except:
+            self.torch_version = version("torch")
+        except PackageNotFoundError:
             pass
 
         try:
-            self.torchvision_version = str(pkg_resources.get_distribution("torchvision")).split()[-1]
-        except:
+            self.torchvision_version = version("torchvision")
+        except PackageNotFoundError:
             pass
 
         try:
-            self.directml_version = str(pkg_resources.get_distribution("torch-directml")).split()[-1]
-        except:
+            self.directml_version = version("torch-directml")
+        except PackageNotFoundError:
             pass
 
         self.nvidia_torch_version = "2.1.0+cu118"
@@ -535,10 +544,11 @@ def launch(url):
     engine.addImageProvider("async", backend.thumbnails.async_provider)
     engine.addImageProvider("big", backend.thumbnails.big_provider)
 
-    qmlRegisterSingletonType(gui.GUI, "gui", 1, 0, "GUI", lambda qml, js: backend)
+    qmlRegisterSingletonType(gui.GUI, "gui", 1, 0, "GUI", lambda _qml, _js, obj=backend: obj)
     
     translator = Translator(app)
     coordinator = Coordinator(app, engine)
+    qmlRegisterSingletonType(Coordinator, "gui", 1, 0, "COORDINATOR", lambda _qml, _js, obj=coordinator: obj)
 
     try:
         import qml.qml_rc
@@ -557,7 +567,7 @@ def launch(url):
         hwnd = engine.rootObjects()[0].winId()
         misc.setWindowProperties(hwnd, APPID, NAME, LAUNCHER)
 
-    os._exit(app.exec())
+    sys.exit(app.exec())
 
 def ready():
     import qml.qml_rc

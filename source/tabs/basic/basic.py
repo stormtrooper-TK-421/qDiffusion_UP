@@ -75,7 +75,7 @@ class Basic(QObject):
         self._manager.artifact.connect(self.onArtifact)
         self._manager.finished.connect(self.onFinished)
 
-        qmlRegisterSingletonType(Basic, "gui", 1, 0, "BASIC", lambda qml, js: self)
+        qmlRegisterSingletonType(Basic, "gui", 1, 0, "BASIC", lambda _qml, _js, obj=self: obj)
         qmlRegisterUncreatableType(Pose, "gui", 1, 0, "Pose", "Not a QML type")
         qmlRegisterUncreatableType(PoseNode, "gui", 1, 0, "PoseNode", "Not a QML type")
         qmlRegisterUncreatableType(PoseEdge, "gui", 1, 0, "PoseEdge", "Not a QML type")
