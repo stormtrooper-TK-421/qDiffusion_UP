@@ -220,7 +220,21 @@ namespace qDiffusion
             return string.Join(" ", args.Skip(1).Select(QuoteArg).ToArray());
         }
 
-        public static string Run(params string[] args)
+        private static void ApplyEnvironment(ProcessStartInfo startInfo, IDictionary<string, string> environment)
+        {
+            if (environment == null)
+            {
+                return;
+            }
+
+            startInfo.EnvironmentVariables.Clear();
+            foreach (var kvp in environment)
+            {
+                startInfo.EnvironmentVariables[kvp.Key] = kvp.Value ?? string.Empty;
+            }
+        }
+
+        public static string Run(IDictionary<string, string> environment, params string[] args)
         {
             string command = args[0];
             string arguments = BuildArguments(args);
@@ -232,6 +246,7 @@ namespace qDiffusion
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
+            ApplyEnvironment(startInfo, environment);
 
             using (Process process = new Process { StartInfo = startInfo })
             {
@@ -279,7 +294,12 @@ namespace qDiffusion
             }
         }
 
-        public static void Launch(params string[] args)
+        public static string Run(params string[] args)
+        {
+            return Run(null, args);
+        }
+
+        public static void Launch(IDictionary<string, string> environment, params string[] args)
         {
             string command = args[0];
             string arguments = BuildArguments(args);
@@ -291,6 +311,7 @@ namespace qDiffusion
                 RedirectStandardOutput = false,
                 RedirectStandardError = false
             };
+            ApplyEnvironment(startInfo, environment);
 
             Process process = new Process
             {
@@ -298,6 +319,11 @@ namespace qDiffusion
             };
 
             process.Start();
+        }
+
+        public static void Launch(params string[] args)
+        {
+            Launch(null, args);
         }
 
         private static void SafeDeleteDirectory(string path)
@@ -395,53 +421,114 @@ namespace qDiffusion
             return parts[1].Trim();
         }
 
-        private static void ConfigureCleanEnvironment(string exeDir)
+        private static Dictionary<string, string> BuildPythonChildEnv(string repoRoot, string venvDir, string pythonDir)
         {
-            var toClear = new List<string>();
+            var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (DictionaryEntry de in Environment.GetEnvironmentVariables())
             {
-                var key = (string)de.Key;
-                if (key.StartsWith("PYTHON", StringComparison.OrdinalIgnoreCase)
-                    || key.StartsWith("PIP", StringComparison.OrdinalIgnoreCase)
-                    || key.StartsWith("QT", StringComparison.OrdinalIgnoreCase)
-                    || key.StartsWith("QML", StringComparison.OrdinalIgnoreCase))
+                var key = de.Key as string;
+                if (string.IsNullOrEmpty(key))
                 {
-                    toClear.Add(key);
+                    continue;
                 }
+
+                env[key] = de.Value == null ? string.Empty : de.Value.ToString();
             }
+
+            var toClear = env.Keys.Where(key =>
+                    key.StartsWith("PYTHON", StringComparison.OrdinalIgnoreCase)
+                    || key.StartsWith("PIP", StringComparison.OrdinalIgnoreCase)
+                    || key.StartsWith("CONDA", StringComparison.OrdinalIgnoreCase)
+                    || key.StartsWith("QT", StringComparison.OrdinalIgnoreCase)
+                    || key.StartsWith("QML", StringComparison.OrdinalIgnoreCase)
+                    || key.StartsWith("QSG", StringComparison.OrdinalIgnoreCase)
+                    || key.StartsWith("SHIBOKEN", StringComparison.OrdinalIgnoreCase))
+                .ToList();
 
             foreach (var key in toClear)
             {
-                Environment.SetEnvironmentVariable(key, null);
+                env.Remove(key);
             }
 
-            var tmpDir = Path.Combine(exeDir, ".tmp");
+            env.Remove("VIRTUAL_ENV");
+
+            var tmpDir = Path.Combine(repoRoot, ".tmp");
             Directory.CreateDirectory(tmpDir);
+            var mlCacheDir = Path.Combine(tmpDir, "ml_cache");
+            Directory.CreateDirectory(mlCacheDir);
 
-            Environment.SetEnvironmentVariable("PYTHONNOUSERSITE", "1");
-            Environment.SetEnvironmentVariable("PYTHONDONTWRITEBYTECODE", "1");
-            Environment.SetEnvironmentVariable("PIP_NO_CACHE_DIR", "1");
-            Environment.SetEnvironmentVariable("PIP_DISABLE_PIP_VERSION_CHECK", "1");
-            Environment.SetEnvironmentVariable("PIP_CONFIG_FILE", "nul");
-            Environment.SetEnvironmentVariable("QML_DISABLE_DISK_CACHE", "1");
-            Environment.SetEnvironmentVariable("QT_DISABLE_SHADER_DISK_CACHE", "1");
-            Environment.SetEnvironmentVariable("QSG_RHI_DISABLE_SHADER_DISK_CACHE", "1");
-            Environment.SetEnvironmentVariable("TEMP", tmpDir);
-            Environment.SetEnvironmentVariable("TMP", tmpDir);
+            var hfHome = Path.Combine(mlCacheDir, "hf_home");
+            var torchHome = Path.Combine(mlCacheDir, "torch_home");
+            var transformersCache = Path.Combine(mlCacheDir, "transformers_cache");
+            var diffusersCache = Path.Combine(mlCacheDir, "diffusers_cache");
+            Directory.CreateDirectory(hfHome);
+            Directory.CreateDirectory(torchHome);
+            Directory.CreateDirectory(transformersCache);
+            Directory.CreateDirectory(diffusersCache);
+
+            var scriptsPath = Path.Combine(venvDir, "Scripts");
+            var existingPath = env.ContainsKey("PATH") ? env["PATH"] : string.Empty;
+            env["PATH"] = string.IsNullOrEmpty(existingPath) ? scriptsPath : scriptsPath + ";" + existingPath;
+
+            env["VIRTUAL_ENV"] = venvDir;
+            env["PYTHONNOUSERSITE"] = "1";
+            env["PYTHONDONTWRITEBYTECODE"] = "1";
+            env["PIP_NO_CACHE_DIR"] = "1";
+            env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1";
+            env["PIP_CONFIG_FILE"] = "NUL";
+            env["QML_DISABLE_DISK_CACHE"] = "1";
+            env["QT_DISABLE_SHADER_DISK_CACHE"] = "1";
+            env["QSG_RHI_DISABLE_SHADER_DISK_CACHE"] = "1";
+            env["TEMP"] = tmpDir;
+            env["TMP"] = tmpDir;
+            env["TMPDIR"] = tmpDir;
+            env["HF_HOME"] = hfHome;
+            env["TORCH_HOME"] = torchHome;
+            env["TRANSFORMERS_CACHE"] = transformersCache;
+            env["DIFFUSERS_CACHE"] = diffusersCache;
+
+            return env;
         }
 
-        private static void ActivateVenv(string exeDir)
+        private static bool VenvConfigOk(string exeDir)
         {
-            var venvPath = Path.Combine(exeDir, ".venv");
-            var scriptsPath = Path.Combine(venvPath, "Scripts");
-            var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
-            Environment.SetEnvironmentVariable("PATH", scriptsPath + ";" + path);
-            Environment.SetEnvironmentVariable("VIRTUAL_ENV", venvPath);
+            var cfg = Path.Combine(exeDir, ".venv", "pyvenv.cfg");
+            if (!File.Exists(cfg))
+            {
+                return false;
+            }
+
+            try
+            {
+                foreach (var rawLine in File.ReadAllLines(cfg))
+                {
+                    var line = rawLine.Trim();
+                    if (!line.StartsWith("include-system-site-packages", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    var idx = line.IndexOf('=');
+                    if (idx < 0)
+                    {
+                        return false;
+                    }
+
+                    var value = line.Substring(idx + 1).Trim();
+                    return string.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch
+            {
+                return false;
+            }
+
+            return false;
         }
 
-        private void EnsurePythonRuntime()
+        private void EnsurePythonRuntime(string repoRoot, IDictionary<string, string> pythonEnv)
         {
-            var pythonExe = Path.Combine("python", "python.exe");
+            var pythonExe = Path.Combine(repoRoot, "python", "python.exe");
             var markerOk = File.Exists(PythonMarkerFile) && File.ReadAllText(PythonMarkerFile).Trim() == PythonVersion;
             var exeOk = File.Exists(pythonExe);
             var versionOk = false;
@@ -449,7 +536,7 @@ namespace qDiffusion
             {
                 try
                 {
-                    var output = Run(pythonExe, "--version");
+                    var output = Run(pythonEnv, pythonExe, "--version");
                     versionOk = ReadVersionFromOutput(output) == PythonVersion;
                 }
                 catch
@@ -519,10 +606,10 @@ namespace qDiffusion
             return false;
         }
 
-        private void EnsureVenv(string exeDir)
+        private void EnsureVenv(string exeDir, string repoRoot, IDictionary<string, string> pythonEnv)
         {
-            var venvPython = Path.Combine(".venv", "Scripts", "python.exe");
-            if (File.Exists(venvPython) && VenvHomeMatchesBundledPython(exeDir))
+            var venvPython = Path.Combine(repoRoot, ".venv", "Scripts", "python.exe");
+            if (File.Exists(venvPython) && VenvHomeMatchesBundledPython(exeDir) && VenvConfigOk(exeDir))
             {
                 return;
             }
@@ -531,16 +618,21 @@ namespace qDiffusion
             LaunchProgress();
             progress?.SetLabel("Creating Environment");
             progress?.SetProgress(99);
-            Run(Path.Combine("python", "python.exe"), "-m", "venv", ".venv");
+            Run(pythonEnv, Path.Combine(repoRoot, "python", "python.exe"), "-m", "venv", Path.Combine(repoRoot, ".venv"));
+
+            if (!VenvConfigOk(exeDir))
+            {
+                throw new Exception("Invalid venv configuration: include-system-site-packages must be false.");
+            }
         }
 
-        private void EnsurePip()
+        private void EnsurePip(string repoRoot, IDictionary<string, string> pythonEnv)
         {
-            var venvPython = Path.Combine(".venv", "Scripts", "python.exe");
+            var venvPython = Path.Combine(repoRoot, ".venv", "Scripts", "python.exe");
             bool pipOk;
             try
             {
-                Run(venvPython, "-m", "pip", "--version");
+                Run(pythonEnv, venvPython, "-I", "-m", "pip", "--version");
                 pipOk = true;
             }
             catch
@@ -550,8 +642,8 @@ namespace qDiffusion
 
             if (!pipOk)
             {
-                Run(venvPython, "-m", "ensurepip", "--upgrade");
-                Run(venvPython, "-m", "pip", "--version");
+                Run(pythonEnv, venvPython, "-I", "-m", "ensurepip", "--upgrade");
+                Run(pythonEnv, venvPython, "-I", "-m", "pip", "--version");
             }
 
             if (!File.Exists(PipMarkerFile))
@@ -559,16 +651,16 @@ namespace qDiffusion
                 LaunchProgress();
                 progress?.SetLabel("Upgrading pip tooling");
                 progress?.SetProgress(0);
-                Run(venvPython, "-m", "pip", "install", "-U", "pip", "setuptools", "wheel", "--no-cache-dir");
+                Run(pythonEnv, venvPython, "-I", "-m", "pip", "install", "-U", "pip", "setuptools", "wheel", "--no-cache-dir");
                 File.WriteAllText(PipMarkerFile, DateTime.UtcNow.ToString("o") + Environment.NewLine);
             }
         }
 
-        private bool VerifyPySideImport(string python)
+        private bool VerifyPySideImport(string python, IDictionary<string, string> pythonEnv)
         {
             try
             {
-                Run(python, "-c", "import PySide6, shiboken6; from PySide6 import QtQml");
+                Run(pythonEnv, python, "-I", "-c", "import PySide6, shiboken6; from PySide6 import QtQml");
                 return true;
             }
             catch
@@ -577,12 +669,12 @@ namespace qDiffusion
             }
         }
 
-        private void EnsurePySideAndWrappers()
+        private void EnsurePySideAndWrappers(string repoRoot, IDictionary<string, string> pythonEnv)
         {
-            var venvPython = Path.Combine(".venv", "Scripts", "python.exe");
-            var rcc = Path.Combine(".venv", "Scripts", "pyside6-rcc.exe");
+            var venvPython = Path.Combine(repoRoot, ".venv", "Scripts", "python.exe");
+            var rcc = Path.Combine(repoRoot, ".venv", "Scripts", "pyside6-rcc.exe");
 
-            bool needsInstall = !File.Exists(PySideMarkerFile) || !VerifyPySideImport(venvPython);
+            bool needsInstall = !File.Exists(PySideMarkerFile) || !VerifyPySideImport(venvPython, pythonEnv);
             if (!needsInstall && !File.Exists(rcc))
             {
                 needsInstall = true;
@@ -593,9 +685,9 @@ namespace qDiffusion
                 LaunchProgress();
                 progress?.SetLabel("Installing PySide6");
                 progress?.SetProgress(0);
-                Run(venvPython, "-m", "pip", "install", "--no-cache-dir", "PySide6==" + RequiredPySideVersion);
+                Run(pythonEnv, venvPython, "-I", "-m", "pip", "install", "--no-cache-dir", "PySide6==" + RequiredPySideVersion);
 
-                if (!VerifyPySideImport(venvPython))
+                if (!VerifyPySideImport(venvPython, pythonEnv))
                 {
                     throw new Exception("PySide6 import verification failed after installation.");
                 }
@@ -636,12 +728,16 @@ namespace qDiffusion
 
             try
             {
-                ConfigureCleanEnvironment(exe_dir);
-                EnsurePythonRuntime();
-                EnsureVenv(exe_dir);
-                ActivateVenv(exe_dir);
-                EnsurePip();
-                EnsurePySideAndWrappers();
+                var repoRoot = Path.GetFullPath(exe_dir);
+                var venvDir = Path.Combine(repoRoot, ".venv");
+                var pythonDir = Path.Combine(repoRoot, "python");
+                var pythonEnv = BuildPythonChildEnv(repoRoot, venvDir, pythonDir);
+
+                EnsurePythonRuntime(repoRoot, pythonEnv);
+                EnsureVenv(exe_dir, repoRoot, pythonEnv);
+                pythonEnv = BuildPythonChildEnv(repoRoot, venvDir, pythonDir);
+                EnsurePip(repoRoot, pythonEnv);
+                EnsurePySideAndWrappers(repoRoot, pythonEnv);
             }
             catch (Exception ex)
             {
@@ -658,10 +754,15 @@ namespace qDiffusion
             progress?.DoClose();
             try
             {
-                string pythonw = Path.Combine(".venv", "Scripts", "pythonw.exe");
-                string python = File.Exists(pythonw) ? pythonw : Path.Combine(".venv", "Scripts", "python.exe");
-                string[] cmd = { python, Path.Combine("source", "main.py") };
-                Launch(cmd.Concat(args).ToArray());
+                var repoRoot = Path.GetFullPath(exe_dir);
+                var venvDir = Path.Combine(repoRoot, ".venv");
+                var pythonDir = Path.Combine(repoRoot, "python");
+                var pythonEnv = BuildPythonChildEnv(repoRoot, venvDir, pythonDir);
+
+                string pythonw = Path.Combine(venvDir, "Scripts", "pythonw.exe");
+                string python = File.Exists(pythonw) ? pythonw : Path.Combine(venvDir, "Scripts", "python.exe");
+                string[] cmd = { python, "-E", "-s", "-B", Path.Combine(repoRoot, "source", "main.py") };
+                Launch(pythonEnv, cmd.Concat(args).ToArray());
             }
             catch (Exception ex)
             {
