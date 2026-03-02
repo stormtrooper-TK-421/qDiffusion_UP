@@ -14,6 +14,15 @@ os.environ.setdefault("QSG_RHI_DISABLE_SHADER_DISK_CACHE", "1")
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 EXPECTED_VENV = (REPO_ROOT / ".venv").resolve()
 CRASH_LOG_PATH = REPO_ROOT / ".logs" / "crash.log"
+REQUIRED_PYSIDE6_MODULES = (
+    "PySide6.QtCore",
+    "PySide6.QtGui",
+    "PySide6.QtWidgets",
+    "PySide6.QtQml",
+    "PySide6.QtQuick",
+    "PySide6.QtNetwork",
+    "PySide6.QtSql",
+)
 
 def exceptHook(exc_type, exc_value, exc_tb):
     tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
@@ -50,8 +59,11 @@ def _ensure_runtime_requirements() -> None:
         print("ERROR: launch.py must run from .venv. Run scripts/bootstrap.py")
         raise SystemExit(1)
 
-    if importlib.util.find_spec("PySide6") is None:
-        print("ERROR: PySide6 is not installed in .venv. Run scripts/bootstrap.py")
+    missing_modules = [name for name in REQUIRED_PYSIDE6_MODULES if importlib.util.find_spec(name) is None]
+    if missing_modules:
+        modules = ", ".join(missing_modules)
+        print("ERROR: PySide6 runtime modules are missing in .venv:", modules)
+        print("Run scripts/bootstrap.py to reinstall GUI dependencies.")
         raise SystemExit(1)
 
 

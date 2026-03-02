@@ -264,8 +264,17 @@ class Coordinator(QObject):
         except Exception:
             pass
 
-        with open(os.path.join("source", "requirements_gui.txt")) as file:
-            self.required = [line.rstrip() for line in file]
+        requirement_candidates = [
+            os.path.join("requirements", "gui.txt"),
+            os.path.join("source", "requirements_gui.txt"),
+        ]
+        for requirement_path in requirement_candidates:
+            if os.path.exists(requirement_path):
+                with open(requirement_path) as file:
+                    self.required = [line.rstrip() for line in file]
+                break
+        else:
+            raise FileNotFoundError("Missing GUI requirements file (checked requirements/gui.txt and source/requirements_gui.txt)")
 
         with open(os.path.join("source", "requirements_inference.txt")) as file:
             self.optional = [line.rstrip() for line in file]
