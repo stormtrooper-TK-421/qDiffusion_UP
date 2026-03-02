@@ -20,7 +20,7 @@ AdvancedDropArea {
 
         Glow {
             opacity: 0.3
-            visible: dropText.visible
+            visible: COMMON.effectsEnabled && dropText.visible
             anchors.fill: dropText
             radius: 4
             samples: 4
@@ -41,7 +41,7 @@ AdvancedDropArea {
         }
 
         Glow {
-            visible: dropIcon.visible
+            visible: COMMON.effectsEnabled && dropIcon.visible
             opacity: 0.3
             anchors.fill: dropIcon
             radius: 4
@@ -62,7 +62,7 @@ AdvancedDropArea {
 
         ColorOverlay {
             id: dropIconOverlay
-            visible: dropIcon.visible
+            visible: COMMON.effectsEnabled && dropIcon.visible
             anchors.fill: dropIcon
             source: dropIcon
             color: COMMON.fg2

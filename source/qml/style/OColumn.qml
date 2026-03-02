@@ -101,6 +101,7 @@ Item {
         
         Glow {
             opacity: 0.5
+            visible: COMMON.effectsEnabled
             anchors.fill: indicator
             radius: 2
             samples: 8

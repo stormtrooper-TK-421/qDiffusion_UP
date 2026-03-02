@@ -1,6 +1,7 @@
 import QtGraphicalEffects 1.15
 
 RectangularGlow {
+    visible: COMMON.effectsEnabled
     required property var target
     anchors.fill: target
     glowRadius: 5

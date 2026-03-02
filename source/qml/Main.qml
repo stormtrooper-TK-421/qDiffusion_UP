@@ -27,6 +27,7 @@ FocusReleaser {
     }
     
     Component.onCompleted: {
+        COMMON.effectsEnabled = Qt.application.arguments.indexOf("--no-effects") === -1
         window.title = Qt.binding(function() { return TRANSLATOR.instance.translate(GUI.title, "Title"); })
         opacityAnimator.start()
     }
