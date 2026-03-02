@@ -35,6 +35,7 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
+        COMMON.effectsEnabled = Qt.application.arguments.indexOf("--no-effects") === -1
         root.flags = Qt.Window
         root.requestActivate()
         COORDINATOR.load()

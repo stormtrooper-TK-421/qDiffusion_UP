@@ -17,9 +17,10 @@ Item {
         color: root.color
     }
 
-    layer.enabled: true
+    layer.enabled: COMMON.effectsEnabled
     layer.effect: InnerShadow {
         id: innerShadow
+        visible: COMMON.effectsEnabled
         color: root.shadowColor
         samples: root.samples
         radius: root.radius
