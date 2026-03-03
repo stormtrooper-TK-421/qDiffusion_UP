@@ -16,6 +16,9 @@ import json
 import hashlib
 import argparse
 
+os.environ["QT_DEBUG_PLUGINS"] = "1"
+os.environ["QML_IMPORT_TRACE"] = "1"
+
 from importlib.metadata import PackageNotFoundError, distribution, version
 
 from packaging.requirements import Requirement
@@ -24,7 +27,7 @@ import platform
 IS_WIN = platform.system() == 'Windows'
 IS_MAC = platform.system() == 'Darwin'
 
-from PySide6.QtCore import Signal as pyqtSignal, Slot as pyqtSlot, Property as pyqtProperty, QObject, QUrl, QCoreApplication, Qt, QElapsedTimer, QThread
+from PySide6.QtCore import Signal as pyqtSignal, Slot as pyqtSlot, Property as pyqtProperty, QObject, QUrl, QCoreApplication, Qt, QElapsedTimer, QThread, qInstallMessageHandler, QtMsgType
 from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterSingletonType, qmlRegisterType
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon, QGuiApplication
@@ -35,6 +38,26 @@ NAME = "qDiffusion"
 LAUNCHER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "qDiffusion.exe")
 APPID = "arenasys.qdiffusion." + hashlib.md5(LAUNCHER.encode("utf-8")).hexdigest()
 ERRORED = False
+
+def qt_message_handler(mode, context, message):
+    mode_map = {
+        QtMsgType.QtDebugMsg: "DEBUG",
+        QtMsgType.QtInfoMsg: "INFO",
+        QtMsgType.QtWarningMsg: "WARNING",
+        QtMsgType.QtCriticalMsg: "CRITICAL",
+        QtMsgType.QtFatalMsg: "FATAL",
+    }
+    message_type = mode_map.get(mode, "UNKNOWN")
+    context_file = context.file if context and context.file else "<unknown file>"
+    context_line = context.line if context and context.line else 0
+    context_function = context.function if context and context.function else "<unknown function>"
+    timestamp = datetime.datetime.now().isoformat()
+
+    with open("qt_crash.log", "a", encoding="utf-8") as f:
+        f.write(
+            f"[{timestamp}] [{message_type}] {message} "
+            f"({context_file}:{context_line}, {context_function})\n"
+        )
 
 class Application(QApplication):
     t = QElapsedTimer()
@@ -529,6 +552,7 @@ def launch(url):
         QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 
     app = Application([NAME])
+    qInstallMessageHandler(qt_message_handler)
     signal.signal(signal.SIGINT, lambda sig, frame: app.quit())
     app.startTimer(100)
 
@@ -569,7 +593,16 @@ def launch(url):
     engine.load(splash_url)
 
     if not engine.rootObjects():
-        print("CRITICAL: Failed to load Splash.qml. Engine root objects is empty.")
+        warning_messages = "\n".join(str(warning) for warning in engine.warnings())
+        timestamp = datetime.datetime.now().isoformat()
+        crash_message = (
+            f"GUI {timestamp}\n"
+            "CRITICAL: Failed to load Splash.qml. Engine root objects is empty.\n"
+            f"QML warnings:\n{warning_messages if warning_messages else '<none>'}\n\n"
+        )
+        with open("crash.log", "a", encoding="utf-8") as f:
+            f.write(crash_message)
+        print(crash_message.strip())
         sys.exit(-1)
 
     if IS_WIN:
