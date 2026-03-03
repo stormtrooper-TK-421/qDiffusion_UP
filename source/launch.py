@@ -1,11 +1,12 @@
 import datetime
-import importlib.util
 import os
 import pathlib
 import platform
 import subprocess
 import sys
 import traceback
+
+from runtime_requirements import missing_python_modules
 
 # Apply cache-killer flags before any Qt imports occur.
 os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
@@ -27,6 +28,12 @@ REQUIRED_PYSIDE6_MODULES = (
     "PySide6.QtQuick",
     "PySide6.QtNetwork",
     "PySide6.QtSql",
+)
+REQUIRED_GUI_MODULES = (
+    "bson",
+    "PIL.Image",
+    "websockets.sync.client",
+    "cryptography.hazmat.primitives",
 )
 
 def exceptHook(exc_type, exc_value, exc_tb):
@@ -71,7 +78,7 @@ def _ensure_runtime_requirements() -> None:
     if not _is_inside_expected_venv():
         raise RuntimeError("launch.py must run from .venv. Run scripts/bootstrap.py")
 
-    missing_modules = [name for name in REQUIRED_PYSIDE6_MODULES if importlib.util.find_spec(name) is None]
+    missing_modules = missing_python_modules(REQUIRED_PYSIDE6_MODULES)
     if missing_modules:
         modules = ", ".join(missing_modules)
         raise RuntimeError(
@@ -81,11 +88,19 @@ def _ensure_runtime_requirements() -> None:
 
     missing_gui_modules = [name for name in REQUIRED_PYSIDE6_MODULES if importlib.util.find_spec(name) is None]
     if missing_gui_modules:
-        modules = ", ".join(missing_gui_modules)
-        raise RuntimeError(
-            f"GUI runtime modules are missing in .venv: {modules}. "
-            "Run scripts/bootstrap.py --mode gui to reinstall GUI dependencies."
-        )
+        bootstrap_command = [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "bootstrap.py"),
+            "--mode",
+            "gui",
+        ]
+        bootstrap_result = subprocess.run(bootstrap_command, check=False)
+        if bootstrap_result.returncode != 0:
+            raise RuntimeError("Failed to bootstrap GUI dependencies.")
+
+        missing_gui_modules = missing_python_modules(REQUIRED_GUI_MODULES)
+        if missing_gui_modules:
+            raise RuntimeError("Failed to bootstrap GUI dependencies.")
 
 
 if __name__ == "__main__":
