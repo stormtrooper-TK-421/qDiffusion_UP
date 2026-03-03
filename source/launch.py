@@ -6,7 +6,7 @@ import subprocess
 import sys
 import traceback
 
-from runtime_requirements import missing_python_modules
+from runtime_requirements import missing_python_requirements
 
 # Apply cache-killer flags before any Qt imports occur.
 os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
@@ -20,21 +20,7 @@ CRASH_LOG_PATH = REPO_ROOT / "crash.log"
 LAUNCHER = REPO_ROOT / "qDiffusion.exe"
 IS_WIN = platform.system() == "Windows"
 ERRORED = False
-REQUIRED_PYSIDE6_MODULES = (
-    "PySide6.QtCore",
-    "PySide6.QtGui",
-    "PySide6.QtWidgets",
-    "PySide6.QtQml",
-    "PySide6.QtQuick",
-    "PySide6.QtNetwork",
-    "PySide6.QtSql",
-)
-REQUIRED_GUI_MODULES = (
-    "bson",
-    "PIL.Image",
-    "websockets.sync.client",
-    "cryptography.hazmat.primitives",
-)
+GUI_REQUIREMENTS_PATH = REPO_ROOT / "requirements" / "gui.txt"
 
 def exceptHook(exc_type, exc_value, exc_tb):
     global ERRORED
@@ -74,37 +60,47 @@ def _is_inside_expected_venv() -> bool:
     return True
 
 
+def _load_requirements(requirement_path: pathlib.Path) -> list[str]:
+    requirements: list[str] = []
+    with requirement_path.open(encoding="utf-8") as requirements_file:
+        for line in requirements_file:
+            requirement = line.split("#", 1)[0].strip()
+            if requirement:
+                requirements.append(requirement)
+    return requirements
+
+
 def _ensure_runtime_requirements() -> None:
     if not _is_inside_expected_venv():
         raise RuntimeError("launch.py must run from .venv. Run scripts/bootstrap.py")
 
-    missing_modules = missing_python_modules(REQUIRED_PYSIDE6_MODULES)
-    if missing_modules:
-        modules = ", ".join(missing_modules)
+    gui_requirements = _load_requirements(GUI_REQUIREMENTS_PATH)
+    missing_gui_requirements = missing_python_requirements(gui_requirements, enforce_version=True)
+
+    if not missing_gui_requirements:
+        return
+
+    bootstrap_command = [
+        sys.executable,
+        str(REPO_ROOT / "scripts" / "bootstrap.py"),
+        "--mode",
+        "gui",
+    ]
+    bootstrap_result = subprocess.run(bootstrap_command, check=False)
+    if bootstrap_result.returncode != 0:
+        requirements = ", ".join(missing_gui_requirements)
         raise RuntimeError(
-            f"PySide6 runtime modules are missing in .venv: {modules}. "
-            "Run scripts/bootstrap.py to reinstall GUI dependencies."
+            "Failed to bootstrap GUI dependencies. "
+            f"Missing requirements before bootstrap: {requirements}."
         )
 
-    missing_gui_modules = missing_python_modules(REQUIRED_GUI_MODULES)
-    if missing_gui_modules:
-        bootstrap_command = [
-            sys.executable,
-            str(REPO_ROOT / "scripts" / "bootstrap.py"),
-            "--mode",
-            "gui",
-        ]
-        bootstrap_result = subprocess.run(bootstrap_command, check=False)
-        if bootstrap_result.returncode != 0:
-            raise RuntimeError("Failed to bootstrap GUI dependencies.")
-
-        missing_gui_modules = missing_python_modules(REQUIRED_GUI_MODULES)
-        if missing_gui_modules:
-            modules = ", ".join(missing_gui_modules)
-            raise RuntimeError(
-                f"GUI runtime modules are still missing after bootstrap: {modules}. "
-                "Run scripts/bootstrap.py --mode gui to reinstall GUI dependencies."
-            )
+    missing_gui_requirements = missing_python_requirements(gui_requirements, enforce_version=True)
+    if missing_gui_requirements:
+        requirements = ", ".join(missing_gui_requirements)
+        raise RuntimeError(
+            "GUI runtime requirements are still missing after bootstrap: "
+            f"{requirements}. Run scripts/bootstrap.py --mode gui to reinstall GUI dependencies."
+        )
 
 
 if __name__ == "__main__":
