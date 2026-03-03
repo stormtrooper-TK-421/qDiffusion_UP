@@ -90,7 +90,13 @@ def buildQMLRc():
 
     items = sorted({item.replace("\\", "/") for item in items})
 
-    items = ''.join([f"\t\t<file>{os.path.relpath(f, qml_path).replace('\\\\', '/')}</file>\n" for f in items])
+    qrc_entries = []
+    for item in items:
+        rel_item = os.path.relpath(item, qml_path)
+        normalized_rel_item = rel_item.replace(os.sep, "/")
+        qrc_entries.append(f"\t\t<file>{normalized_rel_item}</file>\n")
+
+    items = ''.join(qrc_entries)
 
     contents = f"""<RCC>\n\t<qresource prefix="/">\n{items}\t</qresource>\n</RCC>"""
 

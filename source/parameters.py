@@ -7,7 +7,7 @@ import json
 import PIL.Image
 import PIL.PngImagePlugin
 
-from PySide6.QtCore import Slot, Property, Signal, QObject, Qt, QVariant, QSize
+from PySide6.QtCore import Slot, Property, Signal, QObject, Qt, QSize
 from PySide6.QtQml import qmlRegisterUncreatableType, qmlRegisterType
 
 IDX = -1
@@ -222,7 +222,7 @@ class VariantMap(QObject):
         self._strict = strict
 
     @Slot(str, result='QVariant')
-    def get(self, key, default=QVariant()):
+    def get(self, key, default=None):
         if key in self._map:
             return self._map[key]
         return default
@@ -240,7 +240,7 @@ class VariantMap(QObject):
                     pass
             self.updating.emit(key, self._map[key], value)
         else:
-            self.updating.emit(key, QVariant(), value)
+            self.updating.emit(key, None, value)
 
         self._map[key] = value
         self.updated.emit(key)

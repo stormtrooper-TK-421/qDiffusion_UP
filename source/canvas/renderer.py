@@ -1,6 +1,7 @@
 from PySide6.QtCore import Qt, QPointF, QRectF, QSizeF
 from PySide6.QtQuick import QQuickFramebufferObject
-from PySide6.QtGui import QRadialGradient, QColor, QPainter, QPolygonF, QOpenGLPaintDevice, QImage, QGuiApplication
+from PySide6.QtGui import QRadialGradient, QColor, QPainter, QPolygonF, QImage, QGuiApplication
+from PySide6.QtOpenGL import QOpenGLPaintDevice
 import OpenGL.GL as gl
 import copy
 import time

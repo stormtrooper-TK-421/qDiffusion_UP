@@ -4,7 +4,7 @@ from typing import *
 import time
 import threading
 
-from PySide6.QtCore import Property, Slot, Signal, Qt, QObject, QThread, QAbstractListModel, QByteArray, QModelIndex, QTimer, QVariant
+from PySide6.QtCore import Property, Slot, Signal, Qt, QObject, QThread, QAbstractListModel, QByteArray, QModelIndex, QTimer
 from PySide6.QtSql import QSqlDatabase, QSqlQuery, QSqlDriver
 from PySide6.QtQml import qmlRegisterType
 
@@ -308,7 +308,7 @@ class Sql(QAbstractListModel):
             self.resultsChanged.emit()
 
     def data(self, index, role):
-        value = QVariant()
+        value = None
         if role > Qt.UserRole:
             column = role - Qt.UserRole - 1
             row = index.row()
