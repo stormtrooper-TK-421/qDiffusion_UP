@@ -1,11 +1,25 @@
 #!/bin/sh
 
-if [ ! -d "./python" ] 
+if [ ! -d "./python" ]
 then
-    echo "DOWNLOADING PYTHON..."
-    curl -L --progress-bar "https://github.com/indygreg/python-build-standalone/releases/download/20240726/cpython-3.10.14+20240726-x86_64-apple-darwin-install_only.tar.gz" -o "python.tar.gz"
+    arch="x86_64"
+    if [ "$(uname -m)" = "arm64" ]; then
+        arch="aarch64"
+    fi
+    echo "DOWNLOADING PYTHON 3.14.3 ($arch)..."
+    curl -L --progress-bar "https://github.com/astral-sh/python-build-standalone/releases/download/20260203/cpython-3.14.3+20260203-$arch-apple-darwin-install_only.tar.gz" -o "python.tar.gz"
     echo "EXTRACTING PYTHON..."
     tar -xf "python.tar.gz"
     rm "python.tar.gz"
 fi
-./python/bin/python3 source/launch.py "$@"
+
+if [ ! -d ".venv" ]; then
+    echo "BOOTSTRAPPING VIRTUAL ENVIRONMENT..."
+    ./python/bin/python3 scripts/bootstrap.py --mode gui
+    if [ $? -ne 0 ]; then
+        echo "Failed to bootstrap virtual environment."
+        exit 1
+    fi
+fi
+
+./python/bin/python3 scripts/run_gui.py "$@"

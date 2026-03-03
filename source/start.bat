@@ -27,5 +27,14 @@ if not exist "python\python.exe" (
     del /q "%CD%\python.zip"
 )
 
-start "" ".\python\python.exe" source\launch.py
+if not exist ".venv" (
+    echo BOOTSTRAPPING VIRTUAL ENVIRONMENT...
+    ".\python\python.exe" scripts\bootstrap.py --mode gui
+    if errorlevel 1 (
+        echo Failed to bootstrap virtual environment.
+        exit /b 1
+    )
+)
+
+start "" ".\python\python.exe" scripts\run_gui.py
 exit /b 0
