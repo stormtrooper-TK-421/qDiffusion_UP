@@ -19,9 +19,9 @@ import argparse
 os.environ["QT_DEBUG_PLUGINS"] = "1"
 os.environ["QML_IMPORT_TRACE"] = "1"
 
-from importlib.metadata import PackageNotFoundError, distribution, version
+from importlib.metadata import PackageNotFoundError, version
 
-from packaging.requirements import Requirement
+from runtime_requirements import missing_python_requirements
 
 import platform
 IS_WIN = platform.system() == 'Windows'
@@ -178,20 +178,9 @@ class Builder(QThread):
         buildQMLRc()
         buildQMLPy()
 
-def check(dependancies, enforce_version=True):
-    needed = []
-    for d in dependancies:
-        try:
-            req = Requirement(d)
-            dist = distribution(req.name)
+def check(requirements, enforce_version=True):
+    return missing_python_requirements(requirements, enforce_version)
 
-            if enforce_version and req.specifier and not req.specifier.contains(dist.version):
-                needed += [d]
-        except PackageNotFoundError:
-            needed += [d]
-        except Exception:
-            pass
-    return needed
 
 class Installer(QThread):
     output = pyqtSignal(str)
