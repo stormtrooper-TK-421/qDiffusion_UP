@@ -14,12 +14,16 @@ using System.Linq;
 using Microsoft.Win32;
 using System.Security.Cryptography;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 namespace qDiffusion
 {
     class Worker
     {
-        private static readonly object CrashLogLock = new object();
+        private static readonly object CrashLogInitLock = new object();
+        private static BlockingCollection<string> CrashLogQueue;
+        private static Thread CrashLogThread;
+        private static int CrashLogShutdownRequested;
 
         [DllImport("shell32.dll", SetLastError = true)]
         static extern void SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
@@ -37,6 +41,71 @@ namespace qDiffusion
 
         private Dialog progress;
 
+        private static string CrashLogPath
+        {
+            get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "launcher_crash.log"); }
+        }
+
+        private static void EnsureCrashLoggerStarted()
+        {
+            if (CrashLogThread != null)
+            {
+                return;
+            }
+
+            lock (CrashLogInitLock)
+            {
+                if (CrashLogThread != null)
+                {
+                    return;
+                }
+
+                CrashLogQueue = new BlockingCollection<string>(new ConcurrentQueue<string>());
+                CrashLogThread = new Thread(() =>
+                {
+                    try
+                    {
+                        using (var stream = new FileStream(CrashLogPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
+                        using (var writer = new StreamWriter(stream))
+                        {
+                            writer.AutoFlush = true;
+                            foreach (string entry in CrashLogQueue.GetConsumingEnumerable())
+                            {
+                                writer.WriteLine(entry);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Logging must never crash launcher execution.
+                    }
+                });
+                CrashLogThread.IsBackground = true;
+                CrashLogThread.Name = "LauncherCrashLogWriter";
+                CrashLogThread.Start();
+            }
+        }
+
+        public static void ShutdownCrashLogger()
+        {
+            if (Interlocked.Exchange(ref CrashLogShutdownRequested, 1) != 0)
+            {
+                return;
+            }
+
+            var queue = CrashLogQueue;
+            if (queue != null)
+            {
+                queue.CompleteAdding();
+            }
+
+            var thread = CrashLogThread;
+            if (thread != null)
+            {
+                thread.Join();
+            }
+        }
+
         public static void AppendCrashLog(string message)
         {
             if (message == null)
@@ -44,12 +113,28 @@ namespace qDiffusion
                 return;
             }
 
-            string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "launcher_crash.log");
-            string timestampedMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}{Environment.NewLine}";
-
-            lock (CrashLogLock)
+            if (Volatile.Read(ref CrashLogShutdownRequested) != 0)
             {
-                File.AppendAllText(logPath, timestampedMessage);
+                return;
+            }
+
+            EnsureCrashLoggerStarted();
+
+            string timestampedMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}";
+
+            var queue = CrashLogQueue;
+            if (queue == null)
+            {
+                return;
+            }
+
+            try
+            {
+                queue.Add(timestampedMessage);
+            }
+            catch (InvalidOperationException)
+            {
+                // Queue is shutting down; ignore late log attempts.
             }
         }
 
@@ -347,6 +432,7 @@ namespace qDiffusion
                 process.BeginErrorReadLine();
                 process.WaitForExit();
                 AppendCrashLog("[python exit] ExitCode=" + process.ExitCode);
+                ShutdownCrashLogger();
             }
         }
 
@@ -816,6 +902,10 @@ namespace qDiffusion
             catch (Exception ex)
             {
                 Worker.AppendCrashLog("[launcher exception] " + ex);
+            }
+            finally
+            {
+                Worker.ShutdownCrashLogger();
             }
         }
     }
