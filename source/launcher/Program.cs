@@ -19,6 +19,8 @@ namespace qDiffusion
 {
     class Worker
     {
+        private static readonly object CrashLogLock = new object();
+
         [DllImport("shell32.dll", SetLastError = true)]
         static extern void SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
 
@@ -34,6 +36,22 @@ namespace qDiffusion
         private const string PythonPackageIndex = "https://pypi.org/simple";
 
         private Dialog progress;
+
+        public static void AppendCrashLog(string message)
+        {
+            if (message == null)
+            {
+                return;
+            }
+
+            string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "launcher_crash.log");
+            string timestampedMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}{Environment.NewLine}";
+
+            lock (CrashLogLock)
+            {
+                File.AppendAllText(logPath, timestampedMessage);
+            }
+        }
 
         private void LaunchProgress()
         {
@@ -297,17 +315,39 @@ namespace qDiffusion
             {
                 UseShellExecute = false,
                 RedirectStandardInput = false,
-                RedirectStandardOutput = false,
-                RedirectStandardError = false
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
             };
             ApplyEnvironment(startInfo, environment);
 
-            Process process = new Process
+            using (Process process = new Process
             {
                 StartInfo = startInfo
-            };
+            })
+            {
+                process.OutputDataReceived += (sender, eventArgs) =>
+                {
+                    if (eventArgs.Data != null)
+                    {
+                        AppendCrashLog("[python stdout] " + eventArgs.Data);
+                    }
+                };
 
-            process.Start();
+                process.ErrorDataReceived += (sender, eventArgs) =>
+                {
+                    if (eventArgs.Data != null)
+                    {
+                        AppendCrashLog("[python stderr] " + eventArgs.Data);
+                    }
+                };
+
+                process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+                process.WaitForExit();
+                AppendCrashLog("[python exit] ExitCode=" + process.ExitCode);
+            }
         }
 
         public static void Launch(params string[] args)
@@ -766,10 +806,17 @@ namespace qDiffusion
         [STAThread]
         static void Main(string[] args)
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Worker worker = new Worker();
-            worker.Work(args);
+            try
+            {
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Worker worker = new Worker();
+                worker.Work(args);
+            }
+            catch (Exception ex)
+            {
+                Worker.AppendCrashLog("[launcher exception] " + ex);
+            }
         }
     }
 }
