@@ -38,6 +38,17 @@ NAME = "qDiffusion"
 LAUNCHER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "qDiffusion.exe")
 APPID = "arenasys.qdiffusion." + hashlib.md5(LAUNCHER.encode("utf-8")).hexdigest()
 ERRORED = False
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _load_requirements(requirement_path):
+    requirements = []
+    with open(requirement_path, encoding="utf-8") as file:
+        for line in file:
+            requirement = line.split("#", 1)[0].strip()
+            if requirement:
+                requirements.append(requirement)
+    return requirements
 
 def qt_message_handler(mode, context, message):
     mode_map = {
@@ -293,20 +304,8 @@ class Coordinator(QObject):
         except Exception:
             pass
 
-        requirement_candidates = [
-            os.path.join("requirements", "gui.txt"),
-            os.path.join("source", "requirements_gui.txt"),
-        ]
-        for requirement_path in requirement_candidates:
-            if os.path.exists(requirement_path):
-                with open(requirement_path) as file:
-                    self.required = [line.rstrip() for line in file]
-                break
-        else:
-            raise FileNotFoundError("Missing GUI requirements file (checked requirements/gui.txt and source/requirements_gui.txt)")
-
-        with open(os.path.join("source", "requirements_inference.txt")) as file:
-            self.optional = [line.rstrip() for line in file]
+        self.required = _load_requirements(os.path.join(REPO_ROOT, "requirements", "gui.txt"))
+        self.optional = _load_requirements(os.path.join(REPO_ROOT, "source", "requirements_inference.txt"))
         self.find_needed()
 
     def find_needed(self):

@@ -28,16 +28,6 @@ REQUIRED_PYSIDE6_MODULES = (
     "PySide6.QtNetwork",
     "PySide6.QtSql",
 )
-REQUIRED_GUI_MODULES = (
-    "PIL",
-    "websockets",
-    "bson",
-    "send2trash",
-    "OpenGL",
-    "cryptography",
-    "numpy",
-    "pygit2",
-)
 
 def exceptHook(exc_type, exc_value, exc_tb):
     global ERRORED
