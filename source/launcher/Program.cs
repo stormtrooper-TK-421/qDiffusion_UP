@@ -23,13 +23,14 @@ namespace qDiffusion
         static extern void SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
 
         private const string PythonVersion = "3.14.3";
-        private const string PythonArchive = "python-3.14.3.zip";
-        private const string PythonDownloadUrl = "https://github.com/arenasys/binaries/releases/download/v1/cpython-3.14.3+windows-x86_64-install_only.zip";
+        private const string PythonArchive = "python-3.14.3-amd64.exe";
+        private const string PythonDownloadUrl = "https://www.python.org/ftp/python/3.14.3/python-3.14.3-amd64.exe";
         private const string PythonSha256 = "";
         private const string PythonMarkerFile = @"python\.qdiff_python_version";
         private const string PipMarkerFile = @".venv\.qdiff_pip_upgraded";
         private const string PySideMarkerFile = @".venv\.qdiff_pyside6_6.10.2_installed";
         private const string RequiredPySideVersion = "6.10.2";
+        private const string PythonPackageIndex = "https://pypi.org/simple";
 
         private Dialog progress;
 
@@ -560,7 +561,22 @@ namespace qDiffusion
 
             progress?.SetLabel("Installing Python");
             progress?.SetProgress(99);
-            ExtractZipSafe(PythonArchive, ".");
+            Run(
+                pythonEnv,
+                Path.GetFullPath(PythonArchive),
+                "/quiet",
+                "InstallAllUsers=0",
+                "SimpleInstall=1",
+                "Include_launcher=0",
+                "Include_test=0",
+                "Include_doc=0",
+                "Include_dev=0",
+                "Include_tcltk=0",
+                "Include_symbols=0",
+                "Include_debug=0",
+                "Include_pip=1",
+                "Include_venv=1",
+                "TargetDir=" + Path.GetFullPath(Path.Combine(repoRoot, "python")));
             File.WriteAllText(PythonMarkerFile, PythonVersion + Environment.NewLine);
             File.Delete(PythonArchive);
         }
@@ -674,7 +690,17 @@ namespace qDiffusion
                 LaunchProgress();
                 progress?.SetLabel("Installing PySide6");
                 progress?.SetProgress(0);
-                Run(pythonEnv, venvPython, "-I", "-m", "pip", "install", "--no-cache-dir", "PySide6==" + RequiredPySideVersion);
+                Run(
+                    pythonEnv,
+                    venvPython,
+                    "-I",
+                    "-m",
+                    "pip",
+                    "install",
+                    "--no-cache-dir",
+                    "--index-url",
+                    PythonPackageIndex,
+                    "PySide6==" + RequiredPySideVersion);
 
                 if (!VerifyPySideImport(venvPython, pythonEnv))
                 {

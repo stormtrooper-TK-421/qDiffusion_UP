@@ -17,6 +17,7 @@ ML_CACHE_ROOT = TMP_ROOT / "ml_cache"
 GUI_REQUIREMENTS = REPO_ROOT / "requirements" / "gui.txt"
 FETCH_INFER_SCRIPT = REPO_ROOT / "scripts" / "fetch_sd_infer.py"
 INFER_REQUIREMENTS = REPO_ROOT / ".third_party" / "sd-inference-server" / "requirements.txt"
+PYPI_INDEX_URL = "https://pypi.org/simple"
 
 
 def parse_args() -> argparse.Namespace:
@@ -128,7 +129,7 @@ def build_hermetic_env() -> dict[str, str]:
 
 def install_requirements(mode: str, env: dict[str, str]) -> None:
     python_bin = VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / "python"
-    pip_base_cmd = [str(python_bin), "-m", "pip", "install", "--no-cache-dir"]
+    pip_base_cmd = [str(python_bin), "-m", "pip", "install", "--no-cache-dir", "--index-url", PYPI_INDEX_URL]
 
     if mode in ("gui", "all"):
         _require_file(GUI_REQUIREMENTS, "GUI requirements")
