@@ -86,7 +86,7 @@ def _ensure_runtime_requirements() -> None:
             "Run scripts/bootstrap.py to reinstall GUI dependencies."
         )
 
-    missing_gui_modules = missing_python_modules(REQUIRED_GUI_MODULES)
+    missing_gui_modules = [name for name in REQUIRED_PYSIDE6_MODULES if importlib.util.find_spec(name) is None]
     if missing_gui_modules:
         bootstrap_command = [
             sys.executable,
