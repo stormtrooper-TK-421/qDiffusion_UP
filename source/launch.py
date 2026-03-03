@@ -23,6 +23,16 @@ REQUIRED_PYSIDE6_MODULES = (
     "PySide6.QtNetwork",
     "PySide6.QtSql",
 )
+REQUIRED_GUI_MODULES = (
+    "PIL",
+    "websockets",
+    "bson",
+    "send2trash",
+    "OpenGL",
+    "cryptography",
+    "numpy",
+    "pygit2",
+)
 
 def exceptHook(exc_type, exc_value, exc_tb):
     tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
@@ -64,6 +74,13 @@ def _ensure_runtime_requirements() -> None:
         modules = ", ".join(missing_modules)
         print("ERROR: PySide6 runtime modules are missing in .venv:", modules)
         print("Run scripts/bootstrap.py to reinstall GUI dependencies.")
+        raise SystemExit(1)
+
+    missing_gui_modules = [name for name in REQUIRED_GUI_MODULES if importlib.util.find_spec(name) is None]
+    if missing_gui_modules:
+        modules = ", ".join(missing_gui_modules)
+        print("ERROR: GUI runtime modules are missing in .venv:", modules)
+        print("Run scripts/bootstrap.py --mode gui to reinstall GUI dependencies.")
         raise SystemExit(1)
 
 
