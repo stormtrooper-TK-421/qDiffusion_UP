@@ -6,11 +6,8 @@ import types
 import launch
 
 
-def test_launch_checks_for_gui_runtime_modules() -> None:
-    assert "bson" in launch.REQUIRED_GUI_MODULES
-    assert "PIL.Image" in launch.REQUIRED_GUI_MODULES
-    assert "websockets.sync.client" in launch.REQUIRED_GUI_MODULES
-    assert "cryptography.hazmat.primitives" in launch.REQUIRED_GUI_MODULES
+def test_launch_uses_gui_requirements_file_path() -> None:
+    assert launch.GUI_REQUIREMENTS_PATH == launch.REPO_ROOT / "requirements" / "gui.txt"
 
 
 def test_gui_requirements_pin_bson_dependency() -> None:
@@ -18,16 +15,17 @@ def test_gui_requirements_pin_bson_dependency() -> None:
     assert any(line.strip().startswith("bson") for line in requirements.splitlines())
 
 
-def test_missing_gui_modules_trigger_bootstrap(monkeypatch) -> None:
+def test_missing_gui_requirements_trigger_bootstrap(monkeypatch) -> None:
     monkeypatch.setattr(launch, "_is_inside_expected_venv", lambda: True)
+    monkeypatch.setattr(launch, "_load_requirements", lambda path: ["bson==0.5.10"])
 
     state = {"bootstrapped": False}
 
-    def fake_missing_python_modules(modules):
-        if modules == launch.REQUIRED_PYSIDE6_MODULES:
-            return []
-        if modules == launch.REQUIRED_GUI_MODULES and not state["bootstrapped"]:
-            return ["bson"]
+    def fake_missing_python_requirements(requirements, enforce_version):
+        assert requirements == ["bson==0.5.10"]
+        assert enforce_version is True
+        if not state["bootstrapped"]:
+            return ["bson==0.5.10"]
         return []
 
     def fake_run(command, check=False):
@@ -40,7 +38,7 @@ def test_missing_gui_modules_trigger_bootstrap(monkeypatch) -> None:
         state["bootstrapped"] = True
         return types.SimpleNamespace(returncode=0)
 
-    monkeypatch.setattr(launch, "missing_python_modules", fake_missing_python_modules)
+    monkeypatch.setattr(launch, "missing_python_requirements", fake_missing_python_requirements)
     monkeypatch.setattr(launch.subprocess, "run", fake_run)
 
     launch._ensure_runtime_requirements()
@@ -49,15 +47,13 @@ def test_missing_gui_modules_trigger_bootstrap(monkeypatch) -> None:
 
 def test_failed_bootstrap_raises_runtime_error(monkeypatch) -> None:
     monkeypatch.setattr(launch, "_is_inside_expected_venv", lambda: True)
+    monkeypatch.setattr(launch, "_load_requirements", lambda path: ["bson==0.5.10"])
 
-    def fake_missing_python_modules(modules):
-        if modules == launch.REQUIRED_PYSIDE6_MODULES:
-            return []
-        if modules == launch.REQUIRED_GUI_MODULES:
-            return ["bson"]
-        return []
-
-    monkeypatch.setattr(launch, "missing_python_modules", fake_missing_python_modules)
+    monkeypatch.setattr(
+        launch,
+        "missing_python_requirements",
+        lambda requirements, enforce_version: ["bson==0.5.10"],
+    )
     monkeypatch.setattr(
         launch.subprocess,
         "run",
@@ -67,6 +63,34 @@ def test_failed_bootstrap_raises_runtime_error(monkeypatch) -> None:
     try:
         launch._ensure_runtime_requirements()
     except RuntimeError as exc:
-        assert str(exc) == "Failed to bootstrap GUI dependencies."
+        assert str(exc) == (
+            "Failed to bootstrap GUI dependencies. "
+            "Missing requirements before bootstrap: bson==0.5.10."
+        )
+    else:
+        raise AssertionError("Expected RuntimeError was not raised")
+
+
+def test_missing_gui_requirements_after_bootstrap_raise_runtime_error(monkeypatch) -> None:
+    monkeypatch.setattr(launch, "_is_inside_expected_venv", lambda: True)
+    monkeypatch.setattr(launch, "_load_requirements", lambda path: ["bson==0.5.10", "PySide6==6.10.2"])
+    monkeypatch.setattr(
+        launch,
+        "missing_python_requirements",
+        lambda requirements, enforce_version: ["PySide6==6.10.2"],
+    )
+    monkeypatch.setattr(
+        launch.subprocess,
+        "run",
+        lambda command, check=False: types.SimpleNamespace(returncode=0),
+    )
+
+    try:
+        launch._ensure_runtime_requirements()
+    except RuntimeError as exc:
+        assert str(exc) == (
+            "GUI runtime requirements are still missing after bootstrap: PySide6==6.10.2. "
+            "Run scripts/bootstrap.py --mode gui to reinstall GUI dependencies."
+        )
     else:
         raise AssertionError("Expected RuntimeError was not raised")

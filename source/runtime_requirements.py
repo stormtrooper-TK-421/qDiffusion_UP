@@ -1,13 +1,8 @@
 from __future__ import annotations
 
-import importlib.util
 from importlib.metadata import PackageNotFoundError, distribution
 
 from packaging.requirements import Requirement
-
-
-def missing_python_modules(modules: tuple[str, ...] | list[str]) -> list[str]:
-    return [name for name in modules if importlib.util.find_spec(name) is None]
 
 
 def missing_python_requirements(requirements: list[str], enforce_version: bool = True) -> list[str]:
