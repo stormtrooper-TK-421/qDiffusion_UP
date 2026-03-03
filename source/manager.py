@@ -2,6 +2,7 @@ import os
 import datetime
 import io
 import PIL.Image
+import PIL.PngImagePlugin
 import random
 import re
 import threading
