@@ -97,6 +97,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     _run_python(["scripts/qml_audit.py"], label="QML audit")
+    _run_python(["scripts/check_requirements_layout.py"], label="requirements layout")
     _run_python(
         ["-m", "pytest", *args.pytest_args],
         label="pytest smoke",
