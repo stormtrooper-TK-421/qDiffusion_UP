@@ -23,9 +23,10 @@ namespace qDiffusion
         static extern void SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
 
         private const string PythonVersion = "3.14.3";
-        private const string PythonArchive = "python-3.14.3-amd64.exe";
-        private const string PythonDownloadUrl = "https://www.python.org/ftp/python/3.14.3/python-3.14.3-amd64.exe";
-        private const string PythonSha256 = "";
+        private const string PythonArchive = "python-3.14.3-amd64.zip";
+        private const string PythonDownloadUrl = "https://www.python.org/ftp/python/3.14.3/python-3.14.3-amd64.zip";
+        // Official SHA256 from python.org windows-3.14.3.json (PythonCore 3.14.3 x64)
+        private const string PythonSha256 = "ec781bb03f9638d136b24da7c83b4db1652ce767848aa856a30bb87cfdb1abe4";
         private const string PythonMarkerFile = @"python\.qdiff_python_version";
         private const string PipMarkerFile = @".venv\.qdiff_pip_upgraded";
         private const string PySideMarkerFile = @".venv\.qdiff_pyside6_6.10.2_installed";
@@ -332,30 +333,14 @@ namespace qDiffusion
             }
         }
 
-        private static string GetExpectedSha256(string url)
+        private static string GetExpectedSha256()
         {
             if (!string.IsNullOrWhiteSpace(PythonSha256))
             {
                 return PythonSha256.ToLowerInvariant();
             }
 
-            try
-            {
-                using (var wc = new WebClient())
-                {
-                    var text = wc.DownloadString(url + ".sha256");
-                    var token = text.Split(new[] { " ", "\t", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-                    if (string.IsNullOrWhiteSpace(token) || token.Length != 64)
-                    {
-                        return null;
-                    }
-                    return token.ToLowerInvariant();
-                }
-            }
-            catch
-            {
-                return null;
-            }
+            return null;
         }
 
         private static void ExtractZipSafe(string zipFile, string outputDir)
@@ -552,31 +537,21 @@ namespace qDiffusion
                 throw new Exception("Python download failed.");
             }
 
-            var expectedHash = GetExpectedSha256(PythonDownloadUrl);
+            var expectedHash = GetExpectedSha256();
+            if (string.IsNullOrWhiteSpace(expectedHash))
+            {
+                throw new Exception("Python archive checksum is not configured.");
+            }
+
             var actualHash = ComputeSha256(PythonArchive);
-            if (expectedHash != null && !string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
             {
                 throw new Exception("Python archive checksum mismatch.");
             }
 
             progress?.SetLabel("Installing Python");
             progress?.SetProgress(99);
-            Run(
-                pythonEnv,
-                Path.GetFullPath(PythonArchive),
-                "/quiet",
-                "InstallAllUsers=0",
-                "SimpleInstall=1",
-                "Include_launcher=0",
-                "Include_test=0",
-                "Include_doc=0",
-                "Include_dev=0",
-                "Include_tcltk=0",
-                "Include_symbols=0",
-                "Include_debug=0",
-                "Include_pip=1",
-                "Include_venv=1",
-                "TargetDir=" + Path.GetFullPath(Path.Combine(repoRoot, "python")));
+            ExtractZipSafe(PythonArchive, "python");
             File.WriteAllText(PythonMarkerFile, PythonVersion + Environment.NewLine);
             File.Delete(PythonArchive);
         }
