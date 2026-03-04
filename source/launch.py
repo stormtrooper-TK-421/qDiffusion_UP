@@ -27,8 +27,6 @@ GUI_REQUIREMENTS_PATH = REPO_ROOT / "requirements" / "gui.txt"
 QML_ROOT = REPO_ROOT / "source" / "qml"
 QML_RC_PATH = QML_ROOT / "qml_rc.py"
 QML_QRC_PATH = QML_ROOT / "qml.qrc"
-INFERENCE_SOURCE_TREE = REPO_ROOT / "source" / "sd-inference-server"
-SYNC_INFER_REQUIREMENTS_SCRIPT = REPO_ROOT / "scripts" / "sync_infer_requirements.py"
 
 
 @dataclass(frozen=True)
@@ -248,30 +246,6 @@ def _ensure_qml_resources_ready() -> None:
     _compile_qml_resources()
 
 
-def _validate_inference_source_tree() -> None:
-    if INFERENCE_SOURCE_TREE.is_dir():
-        return
-    raise RuntimeError(
-        f"Missing inference source tree at {INFERENCE_SOURCE_TREE}."
-    )
-
-
-def _sync_inference_requirements() -> None:
-    status = subprocess.run(
-        [sys.executable, str(SYNC_INFER_REQUIREMENTS_SCRIPT)],
-        capture_output=True,
-        text=True,
-        check=False,
-        **_windows_hidden_subprocess_kwargs(),
-    )
-    if status.returncode != 0:
-        details = (
-            f"stdout: {(status.stdout or '(no stdout)').strip()} | "
-            f"stderr: {(status.stderr or '(no stderr)').strip()}"
-        )
-        raise RuntimeError(f"Failed to sync inference requirements: {details}")
-
-
 PREFLIGHT_STAGES: tuple[PreflightStage, ...] = (
     PreflightStage(
         name="environment/venv validation",
@@ -287,16 +261,6 @@ PREFLIGHT_STAGES: tuple[PreflightStage, ...] = (
         name="QML resource readiness",
         checker=_ensure_qml_resources_ready,
         remediation="Ensure pyside6-rcc is available in .venv and rerun launch.py.",
-    ),
-    PreflightStage(
-        name="inference source tree presence",
-        checker=_validate_inference_source_tree,
-        remediation="Restore source/sd-inference-server (for example, initialize vendored inference sources).",
-    ),
-    PreflightStage(
-        name="inference requirements sync",
-        checker=_sync_inference_requirements,
-        remediation="Run scripts/sync_infer_requirements.py after restoring source/sd-inference-server.",
     ),
 )
 
