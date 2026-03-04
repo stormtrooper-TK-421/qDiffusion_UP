@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Bootstrap a single hermetic project virtual environment.
-
-Dependency layout contract:
-- ``requirements/gui.txt`` contains mandatory dependencies for launch + installer UI.
-- ``source/requirements_inference.txt`` contains optional post-mode dependencies.
-"""
+"""Bootstrap a single hermetic project virtual environment for GUI startup."""
 
 from __future__ import annotations
 
@@ -20,20 +15,11 @@ VENV_DIR = REPO_ROOT / ".venv"
 TMP_ROOT = REPO_ROOT / ".tmp"
 ML_CACHE_ROOT = TMP_ROOT / "ml_cache"
 GUI_REQUIREMENTS = REPO_ROOT / "requirements" / "gui.txt"
-INFERENCE_BASE_REQUIREMENTS = REPO_ROOT / "requirements" / "inference-base.txt"
-FETCH_INFER_SCRIPT = REPO_ROOT / "scripts" / "fetch_sd_infer.py"
-INFER_REQUIREMENTS = REPO_ROOT / "source" / "sd-inference-server" / "requirements.txt"
 PYPI_INDEX_URL = "https://pypi.org/simple"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create/update the repository's single hermetic .venv")
-    parser.add_argument(
-        "--mode",
-        choices=("gui", "infer", "all"),
-        default="gui",
-        help="Dependency set to install into .venv",
-    )
     parser.add_argument(
         "--recreate",
         action="store_true",
@@ -51,19 +37,6 @@ def ensure_supported_python() -> None:
 def _require_file(path: Path, description: str) -> None:
     if not path.is_file():
         raise SystemExit(f"Missing {description}: {path}")
-
-
-def ensure_infer_server_checkout(env: dict[str, str]) -> None:
-    _require_file(FETCH_INFER_SCRIPT, "inference fetch script")
-    run([sys.executable, str(FETCH_INFER_SCRIPT)], env=env)
-
-
-def _require_infer_requirements() -> None:
-    if not INFER_REQUIREMENTS.is_file():
-        raise SystemExit(
-            "Missing inference requirements: expected cloned repository at "
-            "source/sd-inference-server"
-        )
 
 
 def create_or_recreate_venv(recreate: bool, env: dict[str, str]) -> None:
@@ -133,20 +106,12 @@ def build_hermetic_env() -> dict[str, str]:
     return clean_env
 
 
-def install_requirements(mode: str, env: dict[str, str]) -> None:
+def install_requirements(env: dict[str, str]) -> None:
+    _require_file(GUI_REQUIREMENTS, "GUI requirements")
+
     python_bin = VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / "python"
     pip_base_cmd = [str(python_bin), "-m", "pip", "install", "--no-cache-dir", "--index-url", PYPI_INDEX_URL]
-
-    if mode in ("gui", "all"):
-        _require_file(GUI_REQUIREMENTS, "GUI requirements")
-        run([*pip_base_cmd, "-r", str(GUI_REQUIREMENTS)], env=env)
-
-    if mode in ("infer", "all"):
-        _require_file(INFERENCE_BASE_REQUIREMENTS, "inference base requirements")
-        run([*pip_base_cmd, "-r", str(INFERENCE_BASE_REQUIREMENTS)], env=env)
-        ensure_infer_server_checkout(env)
-        _require_infer_requirements()
-        run([*pip_base_cmd, "-r", str(INFER_REQUIREMENTS)], env=env)
+    run([*pip_base_cmd, "-r", str(GUI_REQUIREMENTS)], env=env)
 
 
 def main() -> None:
@@ -154,7 +119,7 @@ def main() -> None:
     ensure_supported_python()
     env = build_hermetic_env()
     create_or_recreate_venv(args.recreate, env)
-    install_requirements(args.mode, env)
+    install_requirements(env)
     print("[bootstrap] Complete.")
 
 

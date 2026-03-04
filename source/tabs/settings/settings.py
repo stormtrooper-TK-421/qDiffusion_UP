@@ -1,6 +1,8 @@
 import math
 import os
 import platform
+import subprocess
+import sys
 IS_WIN = platform.system() == 'Windows'
 
 from PySide6.QtCore import Property, Signal, QObject, Slot, QUrl, QThread
@@ -9,12 +11,29 @@ from PySide6.QtQml import qmlRegisterSingletonType
 from misc import MimeData
 import git
 
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+SYNC_INFER_REQUIREMENTS_SCRIPT = os.path.join(REPO_ROOT, "scripts", "sync_infer_requirements.py")
+
 class Update(QThread):
     def run(self):
         git.git_reset(".", git.QDIFF_URL)
         inf = os.path.join("source", "sd-inference-server")
         if os.path.exists(inf):
             git.git_reset(inf, git.INFER_URL)
+            self._sync_infer_requirements()
+
+    def _sync_infer_requirements(self):
+        status = subprocess.run(
+            [sys.executable, SYNC_INFER_REQUIREMENTS_SCRIPT],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if status.returncode != 0:
+            details = (status.stderr or status.stdout or "(no output)").strip()
+            raise RuntimeError(f"Failed to sync inference requirements after update: {details}")
 
 class Settings(QObject):
     updated = Signal()

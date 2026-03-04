@@ -52,8 +52,6 @@ def test_missing_gui_requirements_trigger_bootstrap(monkeypatch) -> None:
         assert command == [
             launch.sys.executable,
             str(launch.REPO_ROOT / "scripts" / "bootstrap.py"),
-            "--mode",
-            "gui",
         ]
         state["bootstrapped"] = True
         return types.SimpleNamespace(returncode=0)
@@ -110,7 +108,7 @@ def test_missing_gui_requirements_after_bootstrap_raise_runtime_error(monkeypatc
     except RuntimeError as exc:
         assert str(exc) == (
             "GUI runtime requirements are still missing after bootstrap: PySide6==6.10.2. "
-            "Run scripts/bootstrap.py --mode gui to reinstall GUI dependencies."
+            "Run scripts/bootstrap.py to reinstall GUI dependencies."
         )
     else:
         raise AssertionError("Expected RuntimeError was not raised")

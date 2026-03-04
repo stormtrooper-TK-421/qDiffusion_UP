@@ -40,6 +40,9 @@ ERRORED = False
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SOURCE_DIR = os.path.join(REPO_ROOT, "source")
 QML_DIR = os.path.join(SOURCE_DIR, "qml")
+SYNC_INFER_REQUIREMENTS_SCRIPT = os.path.join(REPO_ROOT, "scripts", "sync_infer_requirements.py")
+INFERENCE_BASE_REQUIREMENTS = os.path.join(REPO_ROOT, "requirements", "inference-base.txt")
+INFERENCE_SERVER_REQUIREMENTS = os.path.join(REPO_ROOT, "requirements", "inference-server.txt")
 
 
 def _qml_local_url(*relative_parts):
@@ -55,6 +58,19 @@ def _load_requirements(requirement_path):
             if requirement:
                 requirements.append(requirement)
     return requirements
+
+
+def _sync_inference_requirements() -> None:
+    result = subprocess.run(
+        [sys.executable, SYNC_INFER_REQUIREMENTS_SCRIPT],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        details = (result.stderr or result.stdout or "(no output)").strip()
+        raise RuntimeError(f"Failed to sync inference requirements: {details}")
 
 def qt_message_handler(mode, context, message):
     mode_map = {
@@ -195,7 +211,7 @@ class Coordinator(QObject):
         except Exception:
             pass
 
-        self.optional = _load_requirements(os.path.join(REPO_ROOT, "requirements", "inference-base.txt"))
+        self.optional: list[str] = []
         self.find_needed()
 
     def find_needed(self):
@@ -226,6 +242,11 @@ class Coordinator(QObject):
 
         self.amd_torch_directml_version = "0.2.0.dev230426"
         
+        _sync_inference_requirements()
+
+        inference_base = _load_requirements(INFERENCE_BASE_REQUIREMENTS)
+        inference_server = _load_requirements(INFERENCE_SERVER_REQUIREMENTS)
+        self.optional = list(dict.fromkeys([*inference_base, *inference_server]))
         self.optional_need = check(self.optional, self.enforce)
     
     @pyqtProperty(list, constant=True)
