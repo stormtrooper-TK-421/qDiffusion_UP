@@ -9,11 +9,12 @@ import traceback
 import datetime
 import subprocess
 import os
-import glob
 import json
 import hashlib
 import argparse
 import importlib
+import shutil
+from pathlib import Path
 
 os.environ["QT_DEBUG_PLUGINS"] = "1"
 os.environ["QML_IMPORT_TRACE"] = "1"
@@ -45,8 +46,103 @@ if SCRIPTS_DIR not in sys.path:
 from env_common import build_env as build_isolated_env
 SOURCE_DIR = os.path.join(REPO_ROOT, "source")
 QML_DIR = os.path.join(SOURCE_DIR, "qml")
+TAB_DIR = os.path.join(SOURCE_DIR, "tabs")
 INFERENCE_SERVER_REQUIREMENTS = os.path.join(REPO_ROOT, "requirements", "inference-server.txt")
 GUI_CORE_REQUIREMENTS = os.path.join(REPO_ROOT, "requirements", "gui.txt")
+
+
+def buildQMLRc():
+    qml_root = Path(QML_DIR)
+    tabs_source_root = Path(TAB_DIR)
+    generated_tabs_root = qml_root / "tabs"
+    qrc_path = qml_root / "qml.qrc"
+
+    if generated_tabs_root.exists():
+        shutil.rmtree(generated_tabs_root, ignore_errors=True)
+    generated_tabs_root.mkdir(parents=True, exist_ok=True)
+
+    copied_resources: list[Path] = []
+    tab_copy_extensions = {".qml", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
+
+    for source_file in tabs_source_root.rglob("*"):
+        if not source_file.is_file():
+            continue
+        if source_file.suffix.lower() not in tab_copy_extensions:
+            continue
+        destination_file = generated_tabs_root / source_file.relative_to(tabs_source_root)
+        destination_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_file, destination_file)
+        copied_resources.append(destination_file)
+
+    resources: set[Path] = set()
+    for resource_dir in ("icons", "fonts", "components", "style"):
+        search_root = qml_root / resource_dir
+        if not search_root.exists():
+            continue
+        for resource_file in search_root.rglob("*"):
+            if resource_file.is_file():
+                resources.add(resource_file)
+
+    for root_qml in qml_root.glob("*.qml"):
+        if root_qml.is_file():
+            resources.add(root_qml)
+
+    resources.update(copied_resources)
+
+    qrc_entries = []
+    for resource in sorted(resources):
+        resource_relative = resource.relative_to(qml_root).as_posix()
+        qrc_entries.append(f"        <file>{resource_relative}</file>")
+
+    qrc_contents = "\n".join([
+        "<RCC>",
+        "    <qresource prefix=\"/\">",
+        *qrc_entries,
+        "    </qresource>",
+        "</RCC>",
+        "",
+    ])
+    qrc_path.write_text(qrc_contents, encoding="utf-8")
+
+
+def buildQMLPy():
+    qml_root = Path(QML_DIR)
+    qml_qrc = qml_root / "qml.qrc"
+    qml_rc_module = qml_root / "qml_rc.py"
+    generated_tabs_root = qml_root / "tabs"
+
+    if not qml_qrc.exists():
+        raise RuntimeError(
+            f"Missing {qml_qrc}. Run buildQMLRc() before buildQMLPy()."
+        )
+
+    result = subprocess.run(
+        ["pyside6-rcc", "-o", str(qml_rc_module), str(qml_qrc)],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=build_isolated_env(),
+        **_windows_hidden_subprocess_kwargs(),
+    )
+    if result.returncode != 0:
+        stdout = (result.stdout or "(no stdout)").strip()
+        stderr = (result.stderr or "(no stderr)").strip()
+        if result.returncode == 127 or "not found" in stderr.lower() or "not recognized" in stderr.lower():
+            raise RuntimeError(
+                "Failed to run pyside6-rcc while generating source/qml/qml_rc.py. "
+                "Install/repair PySide6 tooling in .venv and ensure pyside6-rcc is on PATH. "
+                f"stdout: {stdout} | stderr: {stderr}"
+            )
+        raise RuntimeError(
+            "pyside6-rcc returned a non-zero exit code while compiling source/qml/qml.qrc. "
+            "Run pyside6-rcc manually to inspect errors in resource paths. "
+            f"stdout: {stdout} | stderr: {stderr}"
+        )
+
+    if generated_tabs_root.exists():
+        shutil.rmtree(generated_tabs_root, ignore_errors=True)
+    if qml_qrc.exists():
+        qml_qrc.unlink()
 
 
 def _register_qml_resources():
@@ -69,9 +165,10 @@ def _register_qml_resources():
         raise RuntimeError("Unable to import generated QML resource module qml.qml_rc") from exc
 
 
-def _qml_local_url(*relative_parts):
-    """Resolve startup QML/assets strictly from on-disk source/qml paths."""
-    return QUrl.fromLocalFile(os.path.join(QML_DIR, *relative_parts))
+def _qml_qrc_url(*relative_parts):
+    """Resolve startup QML/assets strictly from qrc:/ resource paths."""
+    path = "/".join(part.strip("/") for part in relative_parts if part)
+    return QUrl(f"qrc:/{path}" if path else "qrc:/")
 
 
 def _load_requirements(requirement_path):
@@ -460,6 +557,10 @@ class Coordinator(QObject):
         return 1.0
     
 def launch(url):
+    buildQMLRc()
+    buildQMLPy()
+    _register_qml_resources()
+
     import misc
     import gui
     import sql
@@ -523,12 +624,8 @@ def launch(url):
     app.coordinator = coordinator
     qmlRegisterSingletonType(Coordinator, "gui", 1, 0, "COORDINATOR", lambda _qml, _js, obj=coordinator: obj)
 
-    # Register qrc resources before any startup path can load Main.qml dependencies.
-    _register_qml_resources()
-
-    # Startup routing is disk-only: no qrc fallback path or runtime branching.
-    engine.rootContext().setContextProperty("STARTUP_QML_DIR_URL", _qml_local_url("").toString())
-    splash_url = _qml_local_url("Splash.qml")
+    engine.rootContext().setContextProperty("STARTUP_QML_DIR_URL", _qml_qrc_url("").toString())
+    splash_url = _qml_qrc_url("Splash.qml")
 
     engine.load(splash_url)
 
@@ -552,11 +649,12 @@ def launch(url):
     sys.exit(app.exec())
 
 def ready():
-    qmlRegisterSingletonType(_qml_local_url("Common.qml"), "gui", 1, 0, "COMMON")
+    qmlRegisterSingletonType(_qml_qrc_url("Common.qml"), "gui", 1, 0, "COMMON")
 
 
 def _tab_qml_url(*relative_parts):
-    return QUrl.fromLocalFile(os.path.join(SOURCE_DIR, "tabs", *relative_parts)).toString()
+    path = "/".join(part.strip("/") for part in relative_parts if part)
+    return f"qrc:/tabs/{path}"
 
 
 def loadTabs(gui_backend, parent):
