@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 from pathlib import Path
 from typing import Iterable
 
@@ -16,14 +15,32 @@ TMP_ROOT = REPO_ROOT / ".tmp"
 STRIP_PREFIXES = ("QT_", "QML_", "PYTHON", "PIP")
 
 
+def _venv_python_candidates() -> list[Path]:
+    # Deterministic, repository-local interpreter locations only.
+    if os.name == "nt":
+        return [
+            VENV_DIR / "Scripts" / "python.exe",
+            VENV_DIR / "Scripts" / "python",
+        ]
+
+    return [
+        VENV_DIR / "bin" / "python3",
+        VENV_DIR / "bin" / "python",
+    ]
+
+
 def venv_python() -> Path:
-    python_bin = VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / "python"
-    if not python_bin.is_file():
-        raise SystemExit(
-            "Missing .venv interpreter. Run `PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 "
-            "python scripts/bootstrap.py` first."
-        )
-    return python_bin
+    for python_bin in _venv_python_candidates():
+        if python_bin.is_file():
+            return python_bin
+
+    searched = ", ".join(str(path) for path in _venv_python_candidates())
+    raise SystemExit(
+        "Missing .venv interpreter. Looked for: "
+        f"{searched}. "
+        "Run `PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 "
+        f"{(REPO_ROOT / 'python' / ('python.exe' if os.name == 'nt' else 'bin/python3')).as_posix()} scripts/bootstrap.py` first."
+    )
 
 
 def _strip_inherited_environment() -> dict[str, str]:
