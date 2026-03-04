@@ -530,6 +530,42 @@ def launch(url):
 def ready():
     qmlRegisterSingletonType(_qml_local_url("Common.qml"), "gui", 1, 0, "COMMON")
 
+
+def _tab_qml_url(*relative_parts):
+    return QUrl.fromLocalFile(os.path.join(SOURCE_DIR, "tabs", *relative_parts)).toString()
+
+
+def loadTabs(gui_backend, parent):
+    from tabs.basic.basic import Basic
+    from tabs.explorer.explorer import Explorer
+    from tabs.gallery.gallery import Gallery
+    from tabs.merger.merger import Merger
+    from tabs.trainer.trainer import Trainer
+    from tabs.settings.settings import Settings
+
+    tabs = [
+        Basic(parent),
+        Explorer(parent),
+        Gallery(parent),
+        Merger(parent),
+        Trainer(parent),
+        Settings(parent),
+    ]
+
+    tab_sources = {
+        "Generate": _tab_qml_url("basic", "Basic.qml"),
+        "Models": _tab_qml_url("explorer", "Explorer.qml"),
+        "History": _tab_qml_url("gallery", "Gallery.qml"),
+        "Merge": _tab_qml_url("merger", "Merger.qml"),
+        "Train": _tab_qml_url("trainer", "Trainer.qml"),
+        "Settings": _tab_qml_url("settings", "Settings.qml"),
+    }
+
+    for tab in tabs:
+        tab.source = tab_sources[tab.name]
+
+    gui_backend.registerTabs(tabs)
+
 def start(engine, app):
     backend = getattr(app, "backend", None)
     if backend:
