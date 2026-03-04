@@ -31,7 +31,7 @@ Information is available on the [Wiki](https://github.com/stormtrooper-TK-421/qD
   - Forbidden examples in phase A: `diffusers`, `transformers`, `accelerate`, `k_diffusion`, `segment-anything`, `timm`, `ultralytics`.
 - **Phase B (installer/inference planning):** only `requirements/inference-server.txt` is allowed.
   - Installer planning code must read `requirements/inference-server.txt` and must not read legacy inference sources.
-  - Forbidden references in planner code: `requirements/inference-base.txt`, `source/sd-inference-server/requirements.txt`.
+  - Forbidden references in planner code: `source/sd-inference-server/requirements.txt`.
 - Enforcement: run `scripts/check_dependency_phase_split.py` (also run by `scripts/prebuild_check.py`).
 
 See `docs/dependency_phase_contract.md` for the full developer contract.

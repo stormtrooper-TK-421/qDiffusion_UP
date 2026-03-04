@@ -35,7 +35,6 @@ def test_bootstrap_source_has_no_inference_install_or_fetch_logic() -> None:
     assert "source/sd-inference-server/requirements.txt" not in text
     assert "source/requirements_inference.txt" not in text
     assert "requirements/inference-server.txt" not in text
-    assert "inference-base.txt" not in text
     assert "--mode" not in text
 
 

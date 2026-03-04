@@ -22,17 +22,10 @@ def test_gui_requirements_do_not_include_torch_or_diffusers_stack() -> None:
     assert all(not entry.startswith("diffusers") for entry in packages)
 
 
-def test_inference_base_requirements_include_diffusers_stack() -> None:
-    requirements = (Path(__file__).resolve().parents[1] / "requirements" / "inference-base.txt").read_text(encoding="utf-8")
-    packages = {line.split("#", 1)[0].strip().lower() for line in requirements.splitlines() if line.strip()}
-    assert any(entry.startswith("diffusers") for entry in packages)
-
-
 def test_launch_runtime_requirement_check_is_gui_only() -> None:
     launch_source = (Path(__file__).resolve().parents[1] / "source" / "launch.py").read_text(encoding="utf-8")
     assert "GUI_REQUIREMENTS_PATH" in launch_source
     assert "gui.txt" in launch_source
-    assert "inference-base" not in launch_source
 
 
 def test_missing_gui_requirements_trigger_bootstrap(monkeypatch) -> None:
@@ -48,7 +41,7 @@ def test_missing_gui_requirements_trigger_bootstrap(monkeypatch) -> None:
             return ["bson==0.5.10"]
         return []
 
-    def fake_run(command, check=False):
+    def fake_run(command, check=False, **kwargs):
         assert command == [
             launch.sys.executable,
             str(launch.REPO_ROOT / "scripts" / "bootstrap.py"),
@@ -75,16 +68,17 @@ def test_failed_bootstrap_raises_runtime_error(monkeypatch) -> None:
     monkeypatch.setattr(
         launch.subprocess,
         "run",
-        lambda command, check=False: types.SimpleNamespace(returncode=1),
+        lambda command, check=False, **kwargs: types.SimpleNamespace(returncode=1, stdout="", stderr=""),
     )
 
     try:
         launch._ensure_runtime_requirements()
     except RuntimeError as exc:
-        assert str(exc) == (
-            "Failed to bootstrap GUI dependencies. "
-            "Missing requirements before bootstrap: bson==0.5.10."
-        )
+        message = str(exc)
+        assert "Failed to bootstrap GUI dependencies." in message
+        assert "Missing requirements before bootstrap: bson==0.5.10." in message
+        assert "bootstrap stdout:" in message
+        assert "bootstrap stderr:" in message
     else:
         raise AssertionError("Expected RuntimeError was not raised")
 
@@ -100,7 +94,7 @@ def test_missing_gui_requirements_after_bootstrap_raise_runtime_error(monkeypatc
     monkeypatch.setattr(
         launch.subprocess,
         "run",
-        lambda command, check=False: types.SimpleNamespace(returncode=0),
+        lambda command, check=False, **kwargs: types.SimpleNamespace(returncode=0),
     )
 
     try:

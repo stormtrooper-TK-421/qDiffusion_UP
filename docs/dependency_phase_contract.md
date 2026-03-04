@@ -45,7 +45,6 @@ Concrete examples (forbidden in `requirements/gui.txt`):
 - Using legacy or alternate inference source files in planning logic.
 
 Concrete examples (forbidden references):
-- `requirements/inference-base.txt`
 - `source/sd-inference-server/requirements.txt` (planner should use synced canonical file instead)
 
 ## Enforcement
