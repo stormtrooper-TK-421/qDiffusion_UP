@@ -76,108 +76,6 @@ class Application(QApplication):
     def event(self, e):
         return QApplication.event(self, e)
         
-def buildQMLRc():
-    qml_path = os.path.join("source", "qml")
-    qml_rc = os.path.join(qml_path, "qml.qrc")
-    if os.path.exists(qml_rc):
-        os.remove(qml_rc)
-
-    items = []
-
-    tabs = glob.glob(os.path.join("source", "tabs", "*"))
-    for tab in tabs:
-        for src in glob.glob(os.path.join(tab, "*.*")):
-            if src.split(".")[-1] in {"qml","svg"}:
-                dst = os.path.join(qml_path, os.path.relpath(src, "source"))
-                os.makedirs(os.path.dirname(dst), exist_ok=True)
-                shutil.copy(src, dst)
-                items += [dst]
-
-    items += glob.glob(os.path.join(qml_path, "*.qml"))
-    items += glob.glob(os.path.join(qml_path, "components", "*.qml"))
-    items += glob.glob(os.path.join(qml_path, "style", "*.qml"))
-    items += glob.glob(os.path.join(qml_path, "fonts", "*.ttf"))
-    items += glob.glob(os.path.join(qml_path, "icons", "*.svg"))
-
-    items = sorted({item.replace("\\", "/") for item in items})
-
-    qrc_entries = []
-    for item in items:
-        rel_item = os.path.relpath(item, qml_path)
-        normalized_rel_item = rel_item.replace(os.sep, "/")
-        qrc_entries.append(f"\t\t<file>{normalized_rel_item}</file>\n")
-
-    items = ''.join(qrc_entries)
-
-    contents = f"""<RCC>\n\t<qresource prefix="/">\n{items}\t</qresource>\n</RCC>"""
-
-    with open(qml_rc, "w") as f:
-        f.write(contents)
-
-def buildQMLPy():
-    qml_path = os.path.join("source", "qml")
-    qml_py = os.path.join(qml_path, "qml_rc.py")
-    qml_rc = os.path.join(qml_path, "qml.qrc")
-
-    if os.path.exists(qml_py):
-        os.remove(qml_py)
-    
-    startupinfo = None
-    if IS_WIN:
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-
-    version_status = subprocess.run(["pyside6-rcc", "--version"], capture_output=True, text=True, startupinfo=startupinfo)
-    if version_status.returncode == 0:
-        rcc_version = (version_status.stdout or version_status.stderr).strip()
-        try:
-            import PySide6
-            expected = f"{PySide6.__version__}"
-            if expected and expected not in rcc_version:
-                print(f"WARNING: pyside6-rcc version mismatch. Expected PySide6 {expected}, got '{rcc_version}'.")
-        except Exception:
-            pass
-
-    status = subprocess.run(["pyside6-rcc", "-o", qml_py, qml_rc], capture_output=True, startupinfo=startupinfo)
-    if status.returncode != 0:
-        raise Exception(status.stderr)
-
-    shutil.rmtree(os.path.join(qml_path, "tabs"))
-    os.remove(qml_rc)
-
-def loadTabs(app, backend):
-    tabs = []
-    for tab in glob.glob(os.path.join("source", "tabs", "*")):
-        tab_name = tab.split(os.path.sep)[-1]
-        if tab_name == "editor":
-            continue
-        tab_name_c = tab_name.capitalize()
-        try:
-            tab_module = importlib.import_module(f"tabs.{tab_name}.{tab_name}")
-            tab_class = getattr(tab_module, tab_name_c)
-            tab_instance = tab_class(parent=app)
-            tab_instance.source = f"qrc:/tabs/{tab_name}/{tab_name_c}.qml"
-            tabs += [tab_instance]
-        except Exception as e:
-            raise e
-            #continue
-    for tab in tabs:
-        if not hasattr(tab, "priority"):
-            tab.priority = len(tabs)
-    
-    tabs.sort(key=lambda tab: tab.priority)
-    backend.registerTabs(tabs)
-
-class Builder(QThread):
-    def __init__(self, app, engine):
-        super().__init__()
-        self.app = app
-        self.engine = engine
-    
-    def run(self):
-        buildQMLRc()
-        buildQMLPy()
-
 def check(requirements, enforce_version=True):
     return missing_python_requirements(requirements, enforce_version)
 
@@ -258,8 +156,6 @@ class Coordinator(QObject):
         super().__init__(app)
         self.app = app
         self.engine = engine
-        self.builder = Builder(app, engine)
-        self.builder.finished.connect(self.loaded)
         self.installer = None
 
         self._needRestart = False
@@ -416,7 +312,7 @@ class Coordinator(QObject):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         icon = os.path.join(root, "source", "qml", "icons", "placeholder.svg")
         self.app.setWindowIcon(QIcon(icon))
-        self.builder.start()
+        self.loaded()
 
     @pyqtSlot()
     def loaded(self):
@@ -573,12 +469,8 @@ def launch(url):
     coordinator = Coordinator(app, engine)
     qmlRegisterSingletonType(Coordinator, "gui", 1, 0, "COORDINATOR", lambda _qml, _js, obj=coordinator: obj)
 
-    try:
-        import qml.qml_rc
-        splash_url = QUrl("qrc:/Splash.qml")
-    except ImportError:
-        splash_path = os.path.abspath(os.path.join("source", "qml", "Splash.qml"))
-        splash_url = QUrl.fromLocalFile(splash_path)
+    import qml.qml_rc
+    splash_url = QUrl("qrc:/Splash.qml")
 
     engine.load(splash_url)
 
