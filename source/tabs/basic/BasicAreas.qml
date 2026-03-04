@@ -4,8 +4,8 @@ import Qt5Compat.GraphicalEffects
 import Qt.labs.platform
 
 import gui
-import "../../style"
-import "../../components"
+import "../../qml/style"
+import "../../qml/components"
 
 Item {
     id: root

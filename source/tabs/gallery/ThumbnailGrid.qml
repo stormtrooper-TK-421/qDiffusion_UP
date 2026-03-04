@@ -2,8 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import Qt5Compat.GraphicalEffects
 
-import "../../style"
-import "../../components"
+import "../../qml/style"
+import "../../qml/components"
 
 GridView {
     id: thumbView
