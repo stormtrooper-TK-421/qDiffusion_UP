@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import sysconfig
+import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -60,6 +61,84 @@ def _tail_error_snippet(stdout: str, stderr: str, line_budget: int = 4) -> str:
     error_lines = [line for line in combined_lines if re.search(r"(error|failed|no matching)", line, re.IGNORECASE)]
     source = error_lines if error_lines else combined_lines
     return " | ".join(source[-line_budget:])
+
+
+def _load_requirements(requirements_file: Path) -> list[str]:
+    lines: list[str] = []
+    for raw_line in requirements_file.read_text(encoding="utf-8").splitlines():
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        lines.append(stripped)
+    return lines
+
+
+def _is_qt_requirement(requirement_line: str) -> bool:
+    normalized = requirement_line.strip().lower()
+    package = re.split(r"[<>=!~\[]", normalized, maxsplit=1)[0]
+    return package.startswith("pyside") or package.startswith("pyqt")
+
+
+def _split_gui_requirements() -> tuple[list[str], list[str]]:
+    all_requirements = _load_requirements(GUI_REQUIREMENTS)
+    qt_requirements = [line for line in all_requirements if _is_qt_requirement(line)]
+    non_qt_requirements = [line for line in all_requirements if not _is_qt_requirement(line)]
+    return non_qt_requirements, qt_requirements
+
+
+def _parse_semver(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
+
+
+def _get_installed_package_version(python_bin: Path, package_name: str, env: dict[str, str]) -> str | None:
+    command = [
+        str(python_bin),
+        "-c",
+        (
+            "from importlib import metadata; "
+            f"print(metadata.version('{package_name}'))"
+        ),
+    ]
+    result = subprocess.run(
+        command,
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+        env=env,
+        **_windows_hidden_subprocess_kwargs(),
+    )
+    if result.returncode != 0:
+        return None
+    version = (result.stdout or "").strip()
+    return version or None
+
+
+def _pyside_meets_minimum(python_bin: Path, env: dict[str, str], minimum_version: str = "6.10.2") -> bool:
+    installed = _get_installed_package_version(python_bin, "PySide6", env)
+    if installed is None:
+        return False
+    try:
+        return _parse_semver(installed) >= _parse_semver(minimum_version)
+    except ValueError:
+        return False
+
+
+def _install_pyside_runtime(python_bin: Path, env: dict[str, str], version: str = "6.10.2") -> None:
+    run(
+        [
+            str(python_bin),
+            "-m",
+            "pip",
+            "install",
+            "--no-cache-dir",
+            "--index-url",
+            PYPI_INDEX_URL,
+            "--ignore-requires-python",
+            f"PySide6=={version}",
+        ],
+        env=env,
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -176,13 +255,33 @@ def install_requirements(env: dict[str, str]) -> None:
 
     python_bin = VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / "python"
     pip_base_cmd = [str(python_bin), "-m", "pip", "install", "--no-cache-dir", "--index-url", PYPI_INDEX_URL]
-    run([*pip_base_cmd, "-r", str(GUI_REQUIREMENTS)], env=env)
+
+    non_qt_requirements, _qt_requirements = _split_gui_requirements()
+    if non_qt_requirements:
+        with tempfile.NamedTemporaryFile("w", delete=False, suffix=".txt", encoding="utf-8") as req_file:
+            req_file.write("\n".join(non_qt_requirements) + "\n")
+            temporary_requirements = Path(req_file.name)
+        try:
+            run([*pip_base_cmd, "-r", str(temporary_requirements)], env=env)
+        finally:
+            temporary_requirements.unlink(missing_ok=True)
+
+    if not _pyside_meets_minimum(python_bin, env):
+        _install_pyside_runtime(python_bin, env)
 
 
 def probe_pinned_compatibility(env: dict[str, str]) -> None:
     _require_file(GUI_REQUIREMENTS, "GUI requirements")
 
     python_bin = VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / "python"
+
+    non_qt_requirements, _qt_requirements = _split_gui_requirements()
+    if not non_qt_requirements:
+        return
+
+    with tempfile.NamedTemporaryFile("w", delete=False, suffix=".txt", encoding="utf-8") as req_file:
+        req_file.write("\n".join(non_qt_requirements) + "\n")
+        probe_requirements = Path(req_file.name)
 
     probe_cmd = [
         str(python_bin),
@@ -192,18 +291,21 @@ def probe_pinned_compatibility(env: dict[str, str]) -> None:
         "--only-binary=:all:",
         "--no-deps",
         "-r",
-        str(GUI_REQUIREMENTS),
+        str(probe_requirements),
     ]
     print(f"[bootstrap] compatibility probe: {GUI_REQUIREMENTS}")
-    result = subprocess.run(
-        probe_cmd,
-        check=False,
-        capture_output=True,
-        text=True,
-        cwd=str(REPO_ROOT),
-        env=env,
-        **_windows_hidden_subprocess_kwargs(),
-    )
+    try:
+        result = subprocess.run(
+            probe_cmd,
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            env=env,
+            **_windows_hidden_subprocess_kwargs(),
+        )
+    finally:
+        probe_requirements.unlink(missing_ok=True)
 
     if result.returncode != 0:
         interpreter = _interpreter_version()

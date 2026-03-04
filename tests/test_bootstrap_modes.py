@@ -24,7 +24,12 @@ def test_bootstrap_installs_only_gui_requirements(monkeypatch) -> None:
 
     assert required_files == [bootstrap.GUI_REQUIREMENTS]
     assert len(commands) == 1
-    assert commands[0][-2:] == ["-r", str(bootstrap.GUI_REQUIREMENTS)]
+    assert commands[0][-2] == "-r"
+    installed_requirements_file = Path(commands[0][-1])
+    assert installed_requirements_file.is_file()
+    installed_lines = installed_requirements_file.read_text(encoding="utf-8").splitlines()
+    assert "PySide6==6.10.2" not in installed_lines
+    assert "packaging==25.0" in installed_lines
 
 
 def test_bootstrap_source_has_no_inference_install_or_fetch_logic() -> None:
@@ -58,7 +63,47 @@ def test_compatibility_probe_uses_single_requirements_download_call(monkeypatch)
     assert "--no-deps" in commands[0]
     assert "-r" in commands[0]
     requirements_index = commands[0].index("-r") + 1
-    assert commands[0][requirements_index] == str(bootstrap.GUI_REQUIREMENTS)
+    requirements_file = Path(commands[0][requirements_index])
+    assert requirements_file.is_file()
+    probed_lines = requirements_file.read_text(encoding="utf-8").splitlines()
+    assert "PySide6==6.10.2" not in probed_lines
+    assert "packaging==25.0" in probed_lines
+
+
+def test_install_requirements_skips_pyside_install_when_minimum_found(monkeypatch) -> None:
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(bootstrap, "_require_file", lambda path, description: None)
+    monkeypatch.setattr(bootstrap, "_pyside_meets_minimum", lambda python_bin, env: True)
+
+    def fake_run(command, env):
+        commands.append(command)
+
+    monkeypatch.setattr(bootstrap, "run", fake_run)
+
+    bootstrap.install_requirements(env={})
+
+    assert len(commands) == 1
+    joined = " ".join(commands[0])
+    assert "PySide6==6.10.2" not in joined
+
+
+def test_install_requirements_forces_pyside_install_when_missing(monkeypatch) -> None:
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(bootstrap, "_require_file", lambda path, description: None)
+    monkeypatch.setattr(bootstrap, "_pyside_meets_minimum", lambda python_bin, env: False)
+
+    def fake_run(command, env):
+        commands.append(command)
+
+    monkeypatch.setattr(bootstrap, "run", fake_run)
+
+    bootstrap.install_requirements(env={})
+
+    assert len(commands) == 2
+    assert "PySide6==6.10.2" in commands[1]
+    assert "--ignore-requires-python" in commands[1]
 
 
 def test_compatibility_probe_failure_reports_single_pip_snippet(monkeypatch) -> None:
