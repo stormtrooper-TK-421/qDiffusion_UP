@@ -51,7 +51,7 @@ Item {
         
         Item {
             width: parent.width
-            height: SETTINGS.updating ? 50 : 30
+            height: SETTINGS.updating || SETTINGS.updateStatusMessage !== "" ? 50 : 30
             LoadingSpinner {
                 size: 20
                 running: SETTINGS.updating
@@ -59,12 +59,21 @@ Item {
             }
             SText {
                 text: root.tr("Restart required")
-                visible: (!SETTINGS.updating && SETTINGS.needRestart) || scalingChoice.needRestart || modeChoice.needRestart
+                visible: (!SETTINGS.updating && SETTINGS.needRestart && SETTINGS.updateStatusMessage === "") || scalingChoice.needRestart || modeChoice.needRestart
                 anchors.fill: parent
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: Text.AlignHCenter
                 pointSize: 9.0
                 color: COMMON.accent(0)
+            }
+            STextSelectable {
+                text: SETTINGS.updateStatusMessage
+                visible: SETTINGS.updateStatusMessage !== ""
+                anchors.fill: parent
+                verticalAlignment: Text.AlignVCenter
+                horizontalAlignment: Text.AlignHCenter
+                pointSize: 8.8
+                color: COMMON.fg2
             }
         }
 
