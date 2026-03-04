@@ -229,12 +229,6 @@ class Coordinator(QObject):
         except PackageNotFoundError:
             pass
 
-        self.nvidia_torch_version = "2.1.0+cu118"
-        self.nvidia_torchvision_version = "0.16+cu118"
-
-        self.amd_torch_version = "2.1.0+rocm5.6"
-        self.amd_torchvision_version = "0.16.0+rocm5.6"
-
         self.amd_torch_directml_version = "0.2.0.dev230426"
         
         self.core = _load_requirements(GUI_CORE_REQUIREMENTS)
@@ -244,20 +238,10 @@ class Coordinator(QObject):
 
     def _mode_backend_needed(self, mode):
         backend_needed = []
-        if mode == "nvidia":
-            if "+cu" not in self.torch_version:
-                backend_needed += ["torch==" + self.nvidia_torch_version]
-            if "+cu" not in self.torchvision_version:
-                backend_needed += ["torchvision==" + self.nvidia_torchvision_version]
-        elif mode == "amd":
+        if mode == "amd":
             if IS_WIN:
                 if not self.directml_version:
                     backend_needed += ["torch-directml==" + self.amd_torch_directml_version]
-            else:
-                if "+rocm" not in self.torch_version:
-                    backend_needed += ["torch==" + self.amd_torch_version]
-                if "+rocm" not in self.torchvision_version:
-                    backend_needed += ["torchvision==" + self.amd_torchvision_version]
         return backend_needed
     
     @pyqtProperty(list, constant=True)
@@ -325,21 +309,11 @@ class Coordinator(QObject):
         backend_needed = self._mode_backend_needed(mode)
         return [*backend_needed, *self.optional_need]
 
-    def _pytorch_index_url(self, mode):
-        if mode == "nvidia":
-            return "https://download.pytorch.org/whl/cu118"
-        if mode == "amd" and not IS_WIN:
-            return "https://download.pytorch.org/whl/rocm5.6"
-        return None
-
     def _build_install_steps(self, mode, backend_needed, inference_needed):
         steps = []
 
         if backend_needed:
             backend_args = ["pip", "install", "-U", *backend_needed]
-            pytorch_index_url = self._pytorch_index_url(mode)
-            if pytorch_index_url:
-                backend_args += ["--index-url", pytorch_index_url]
             backend_args += ["--progress-bar", "raw"]
             steps.append(
                 {
