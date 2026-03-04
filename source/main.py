@@ -293,8 +293,7 @@ class Coordinator(QObject):
         except Exception:
             pass
 
-        self.required = _load_requirements(os.path.join(REPO_ROOT, "requirements", "gui.txt"))
-        self.optional = _load_requirements(os.path.join(REPO_ROOT, "source", "requirements_inference.txt"))
+        self.optional = _load_requirements(os.path.join(REPO_ROOT, "requirements", "inference-base.txt"))
         self.find_needed()
 
     def find_needed(self):
@@ -325,7 +324,6 @@ class Coordinator(QObject):
 
         self.amd_torch_directml_version = "0.2.0.dev230426"
         
-        self.required_need = check(self.required, self.enforce)
         self.optional_need = check(self.optional, self.enforce)
     
     @pyqtProperty(list, constant=True)
@@ -407,8 +405,6 @@ class Coordinator(QObject):
                 if not "+rocm" in self.torchvision_version:
                     needed += ["torchvision=="+self.amd_torchvision_version]
             needed += self.optional_need
-
-        needed += self.required_need
 
         if needed:
             needed = ["pip", "wheel"] + needed
