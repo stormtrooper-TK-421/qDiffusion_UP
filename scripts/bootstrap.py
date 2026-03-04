@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bootstrap a single hermetic project virtual environment for GUI startup."""
+"""Bootstrap a single hermetic project virtual environment for GUI startup readiness."""
 
 from __future__ import annotations
 
@@ -19,11 +19,14 @@ PYPI_INDEX_URL = "https://pypi.org/simple"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Create/update the repository's single hermetic .venv")
+    parser = argparse.ArgumentParser(
+        description="Create/update the repository's single hermetic .venv for startup/GUI readiness only",
+        epilog="This bootstrap installs requirements/gui.txt only. Inference/model dependencies are installed later by the installer.",
+    )
     parser.add_argument(
         "--recreate",
         action="store_true",
-        help="Delete and recreate .venv before installation",
+        help="Delete and recreate .venv before installing startup/GUI requirements",
     )
     return parser.parse_args()
 

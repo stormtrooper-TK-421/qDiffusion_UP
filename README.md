@@ -25,6 +25,11 @@ Information is available on the [Wiki](https://github.com/stormtrooper-TK-421/qD
 - `requirements/gui.txt` = mandatory for launch + installer UI.
 - `source/requirements_inference.txt` = optional post-mode dependencies.
 
+### Bootstrap scope
+- `scripts/bootstrap.py` is only for startup/GUI readiness.
+- It creates or repairs `.venv` and installs `requirements/gui.txt`.
+- It does **not** install backend model or inference dependency sets.
+
 
 ### Remote
 Notebooks for running a remote instance are available: [Colab](https://colab.research.google.com/github/stormtrooper-TK-421/qDiffusion_UP/blob/master/remote_colab.ipynb), [Kaggle](https://www.kaggle.com/code/arenasys/qdiffusion), [SageMaker](https://studiolab.sagemaker.aws/import/github/stormtrooper-TK-421/qDiffusion_UP/blob/master/remote_sagemaker.ipynb)
