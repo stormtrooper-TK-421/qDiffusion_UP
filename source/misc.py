@@ -70,6 +70,8 @@ from PySide6.QtGui import QColor, QImage, QSyntaxHighlighter
 from PySide6.QtNetwork import QNetworkRequest, QNetworkReply, QNetworkAccessManager
 from PySide6.QtQml import qmlRegisterType, qmlRegisterUncreatableType, qmlRegisterSingletonType
 
+from qt_buffer_compat import buffer_slice
+
 class FocusReleaser(QQuickItem):
     releaseFocus = pyqtSignal()
     dropped = pyqtSignal()
@@ -1636,7 +1638,7 @@ class Signaller(QThread):
         status = None
         self.mem.lock()
         try:
-            data = self.mem.data().asarray(1024)
+            data = buffer_slice(self.mem.data(), 1024)
             if value != None:
                 data[-1] = value
             status = data[-1]
@@ -1649,7 +1651,7 @@ class Signaller(QThread):
     def send(self, message):
         self.mem.lock()
         try:
-            data = self.mem.data().asarray(1024)
+            data = buffer_slice(self.mem.data(), 1024)
             for i, c in enumerate(message):
                 data[i] = ord(c)
         except Exception as e:
@@ -1664,7 +1666,7 @@ class Signaller(QThread):
         while not self.isInterruptionRequested():
             self.mem.lock()
             try:
-                data = self.mem.data().asarray(1024)
+                data = buffer_slice(self.mem.data(), 1024)
 
                 message = []
                 for i in range(1024):
