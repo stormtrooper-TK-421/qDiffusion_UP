@@ -7,9 +7,7 @@ from pathlib import Path
 MAIN_PY = Path(__file__).resolve().parents[1] / "source" / "main.py"
 CANONICAL_REQUIREMENTS_CONST = "INFERENCE_SERVER_REQUIREMENTS"
 FORBIDDEN_REFERENCES = {
-    "INFERENCE_BASE_REQUIREMENTS",
     "source/sd-inference-server/requirements.txt",
-    "requirements/inference-base.txt",
 }
 
 

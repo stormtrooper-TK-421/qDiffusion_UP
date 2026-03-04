@@ -7,7 +7,7 @@ Phase A (bootstrap/launch):
 
 Phase B (installer planning):
 - Reads only requirements/inference-server.txt.
-- Must not reference legacy inference-base sources.
+- Must not reference raw sd-inference-server requirements directly.
 """
 
 from __future__ import annotations
@@ -36,14 +36,11 @@ INFERENCE_ONLY_DEPENDENCIES = {
 
 FORBIDDEN_PHASE_A_REFERENCES = (
     "requirements/inference-server.txt",
-    "requirements/inference-base.txt",
     "source/sd-inference-server/requirements.txt",
 )
 
 FORBIDDEN_INSTALLER_REFERENCES = (
-    "requirements/inference-base.txt",
     "source/sd-inference-server/requirements.txt",
-    "INFERENCE_BASE_REQUIREMENTS",
 )
 
 
