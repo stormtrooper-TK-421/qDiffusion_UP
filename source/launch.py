@@ -28,6 +28,7 @@ QML_ROOT = REPO_ROOT / "source" / "qml"
 QML_RC_PATH = QML_ROOT / "qml_rc.py"
 QML_QRC_PATH = QML_ROOT / "qml.qrc"
 INFERENCE_SOURCE_TREE = REPO_ROOT / "source" / "sd-inference-server"
+SYNC_INFER_REQUIREMENTS_SCRIPT = REPO_ROOT / "scripts" / "sync_infer_requirements.py"
 
 
 @dataclass(frozen=True)
@@ -94,8 +95,6 @@ def _ensure_runtime_requirements() -> None:
     bootstrap_command = [
         sys.executable,
         str(REPO_ROOT / "scripts" / "bootstrap.py"),
-        "--mode",
-        "gui",
     ]
     bootstrap_result = subprocess.run(bootstrap_command, check=False)
     if bootstrap_result.returncode != 0:
@@ -110,7 +109,7 @@ def _ensure_runtime_requirements() -> None:
         requirements = ", ".join(missing_gui_requirements)
         raise RuntimeError(
             "GUI runtime requirements are still missing after bootstrap: "
-            f"{requirements}. Run scripts/bootstrap.py --mode gui to reinstall GUI dependencies."
+            f"{requirements}. Run scripts/bootstrap.py to reinstall GUI dependencies."
         )
 
 
@@ -211,6 +210,18 @@ def _validate_inference_source_tree() -> None:
     )
 
 
+def _sync_inference_requirements() -> None:
+    status = subprocess.run(
+        [sys.executable, str(SYNC_INFER_REQUIREMENTS_SCRIPT)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if status.returncode != 0:
+        details = (status.stderr or status.stdout or "(no output)").strip()
+        raise RuntimeError(f"Failed to sync inference requirements: {details}")
+
+
 PREFLIGHT_STAGES: tuple[PreflightStage, ...] = (
     PreflightStage(
         name="environment/venv validation",
@@ -220,7 +231,7 @@ PREFLIGHT_STAGES: tuple[PreflightStage, ...] = (
     PreflightStage(
         name="GUI dependency validation + repair",
         checker=_validate_or_repair_gui_dependencies,
-        remediation="Run scripts/bootstrap.py --mode gui to reinstall GUI dependencies.",
+        remediation="Run scripts/bootstrap.py to reinstall GUI dependencies.",
     ),
     PreflightStage(
         name="QML resource readiness",
@@ -231,6 +242,11 @@ PREFLIGHT_STAGES: tuple[PreflightStage, ...] = (
         name="inference source tree presence",
         checker=_validate_inference_source_tree,
         remediation="Restore source/sd-inference-server (for example, initialize vendored inference sources).",
+    ),
+    PreflightStage(
+        name="inference requirements sync",
+        checker=_sync_inference_requirements,
+        remediation="Run scripts/sync_infer_requirements.py after restoring source/sd-inference-server.",
     ),
 )
 

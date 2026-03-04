@@ -64,7 +64,7 @@ def test_preflight_pipeline_fails_fast_at_first_broken_stage(monkeypatch, failin
             make_stage(index),
             launch.PREFLIGHT_STAGES[index].remediation,
         )
-        for index in range(4)
+        for index in range(len(launch.PREFLIGHT_STAGES))
     )
 
     monkeypatch.setattr(launch, "PREFLIGHT_STAGES", stages)

@@ -21,7 +21,7 @@ def venv_python() -> Path:
     if not python_bin.is_file():
         raise SystemExit(
             "Missing .venv interpreter. Run `PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 "
-            "python scripts/bootstrap.py --mode all` first."
+            "python scripts/bootstrap.py` first."
         )
     return python_bin
 
