@@ -48,8 +48,9 @@ def test_inference_requirements_are_synced_during_preflight_and_updates_only() -
     bootstrap_source = (REPO_ROOT / "scripts" / "bootstrap.py").read_text(encoding="utf-8")
 
     assert "name=\"inference requirements sync\"" in launch_source
-    assert "sync_infer_requirements.py" in main_source
+    assert "sync_infer_requirements.py" not in main_source
     assert "inference-server.txt" in main_source
+    assert "inference-base.txt" not in main_source
     assert "sync_infer_requirements.py" in settings_source
 
     assert "inference-server.txt" not in bootstrap_source

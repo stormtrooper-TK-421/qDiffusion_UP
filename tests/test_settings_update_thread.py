@@ -68,7 +68,8 @@ def test_update_thread_resets_only_canonical_repos_and_syncs_when_inference_chan
 
     monkeypatch.setattr(settings_module.git, "git_last", fake_git_last)
 
-    fake_settings = _FakeSettingsOwner(_FakeApp())
+    app = _FakeApp()
+    fake_settings = _FakeSettingsOwner(app)
     update = settings_module.Update(fake_settings)
 
     sync_calls = {"count": 0}
@@ -84,6 +85,23 @@ def test_update_thread_resets_only_canonical_repos_and_syncs_when_inference_chan
     assert fake_settings.refresh_calls == 1
 
 
+def test_update_thread_skips_sync_when_inference_commit_is_unchanged(monkeypatch):
+    monkeypatch.setattr(settings_module.git, "git_reset", lambda path, origin: None)
+    monkeypatch.setattr(settings_module.git, "git_last", lambda path: ("same-commit", "label"))
+
+    app = _FakeApp()
+    fake_settings = _FakeSettingsOwner(app)
+    update = settings_module.Update(fake_settings)
+
+    sync_calls = {"count": 0}
+    monkeypatch.setattr(update, "_sync_infer_requirements", lambda: sync_calls.__setitem__("count", sync_calls["count"] + 1))
+
+    update.run()
+
+    assert update.inference_commit_changed is False
+    assert sync_calls["count"] == 0
+    assert fake_settings.refresh_calls == 1
+
 
 def test_get_git_info_reports_both_canonical_repos_and_commit_ids(monkeypatch):
     monkeypatch.setattr(settings_module, "qmlRegisterSingletonType", lambda *args, **kwargs: None)
@@ -93,7 +111,10 @@ def test_get_git_info_reports_both_canonical_repos_and_commit_ids(monkeypatch):
     }
     monkeypatch.setattr(settings_module.git, "git_last", lambda path: responses[path])
 
-    settings_obj = settings_module.Settings(_FakeGui(_FakeApp(_FakeCoordinator())))
+    coordinator = _FakeCoordinator()
+    app = _FakeApp(coordinator)
+    gui = _FakeGui(app)
+    settings_obj = settings_module.Settings(gui)
     settings_obj.getGitInfo()
 
     assert "GUI repo (.) commit 111122223333" in settings_obj.gitInfo
@@ -104,7 +125,9 @@ def test_get_git_info_reports_both_canonical_repos_and_commit_ids(monkeypatch):
 def test_refresh_installer_package_plan_invokes_coordinator_find_needed(monkeypatch):
     monkeypatch.setattr(settings_module, "qmlRegisterSingletonType", lambda *args, **kwargs: None)
     coordinator = _FakeCoordinator()
-    settings_obj = settings_module.Settings(_FakeGui(_FakeApp(coordinator)))
+    app = _FakeApp(coordinator)
+    gui = _FakeGui(app)
+    settings_obj = settings_module.Settings(gui)
 
     settings_obj.refreshInstallerPackagePlan()
 
