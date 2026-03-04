@@ -9,6 +9,7 @@ from PySide6.QtSql import QSqlQuery
 from PySide6.QtQml import qmlRegisterSingletonType
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication
+from qml_compat import singleton_instance_provider
 import sql
 import filesystem
 import parameters
@@ -191,7 +192,7 @@ class Gallery(QObject):
 
         self._cellSize = 200
 
-        qmlRegisterSingletonType(Gallery, "gui", 1, 0, "GALLERY", lambda _qml, _js, obj=self: obj)
+        qmlRegisterSingletonType(Gallery, "gui", 1, 0, "GALLERY", singleton_instance_provider(self))
 
         self.populater = Populater(self.gui, self.name)
         self.populater.forceReload.connect(self.populaterForcedReload)

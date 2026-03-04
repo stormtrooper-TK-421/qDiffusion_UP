@@ -5,6 +5,7 @@ import json
 import os
 import glob
 
+from qml_compat import singleton_instance_provider
 from paths import resource_path
 
 class TranslatorInstance(QObject):
@@ -40,7 +41,7 @@ class Translator(QObject):
             pass
 
         qmlRegisterUncreatableType(TranslatorInstance, "gui", 1, 0, "TranslationInstance", "Not a QML type")
-        qmlRegisterSingletonType(Translator, "gui", 1, 0, "TRANSLATOR", lambda _qml, _js, obj=self: obj)
+        qmlRegisterSingletonType(Translator, "gui", 1, 0, "TRANSLATOR", singleton_instance_provider(self))
 
     @pyqtSlot()
     def loadLanguages(self):

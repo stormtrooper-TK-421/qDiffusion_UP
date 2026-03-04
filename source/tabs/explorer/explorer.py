@@ -11,6 +11,7 @@ import glob
 import shutil
 import time
 import json
+from qml_compat import singleton_instance_provider
 from misc import MimeData
 from gui import MODEL_FOLDERS
 
@@ -277,7 +278,7 @@ class Explorer(QObject):
         self._metadata = {}
         self._inspector = misc.InspectorManager(self)
 
-        qmlRegisterSingletonType(Explorer, "gui", 1, 0, "EXPLORER", lambda _qml, _js, obj=self: obj)
+        qmlRegisterSingletonType(Explorer, "gui", 1, 0, "EXPLORER", singleton_instance_provider(self))
 
         self.gui.optionsUpdated.connect(self.optionsUpdated)
         self.gui.favUpdated.connect(self.favouritesUpdated)

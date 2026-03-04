@@ -8,6 +8,7 @@ IS_WIN = platform.system() == 'Windows'
 from PySide6.QtCore import Property, Signal, QObject, Slot, QUrl, QThread
 from PySide6.QtQml import qmlRegisterSingletonType
 
+from qml_compat import singleton_instance_provider
 from misc import MimeData
 import git
 
@@ -102,7 +103,7 @@ class Settings(QObject):
         self._currentUpload = ""
         self._currentUploadMode = 0
 
-        qmlRegisterSingletonType(Settings, "gui", 1, 0, "SETTINGS", lambda _qml, _js, obj=self: obj)
+        qmlRegisterSingletonType(Settings, "gui", 1, 0, "SETTINGS", singleton_instance_provider(self))
 
         self._needRestart = False
         self._currentGitInfo = None

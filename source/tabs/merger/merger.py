@@ -5,6 +5,7 @@ import json
 import difflib
 
 import parameters
+from qml_compat import singleton_instance_provider
 from parameters import VariantMap
 import sql
 import misc
@@ -301,7 +302,7 @@ class Merger(QObject):
             "strength": 1.0
         })
 
-        qmlRegisterSingletonType(Merger, "gui", 1, 0, "MERGER", lambda _qml, _js, obj=self: obj)
+        qmlRegisterSingletonType(Merger, "gui", 1, 0, "MERGER", singleton_instance_provider(self))
         qmlRegisterUncreatableType(MergeOperation, "gui", 1, 0, "MergeOperation", "Not a QML type")
 
         self._operations = []
