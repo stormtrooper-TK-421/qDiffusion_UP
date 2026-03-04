@@ -30,7 +30,8 @@ class Update(QThread):
         post_infer_commit, _ = self._safe_commit(git.INFER_REPO_PATH)
         self.inference_commit_changed = pre_infer_commit != post_infer_commit
 
-        self._sync_infer_requirements()
+        if self.inference_commit_changed:
+            self._sync_infer_requirements()
         self.settings.refreshInstallerPackagePlan()
 
     def _safe_commit(self, path):
