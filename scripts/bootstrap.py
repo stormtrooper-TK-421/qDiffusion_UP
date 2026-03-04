@@ -30,6 +30,14 @@ def _windows_hidden_subprocess_kwargs() -> dict[str, object]:
         return {}
 
     kwargs: dict[str, object] = {}
+    startupinfo_cls = getattr(subprocess, "STARTUPINFO", None)
+    startf_use_show_window = getattr(subprocess, "STARTF_USESHOWWINDOW", 0)
+    if startupinfo_cls and startf_use_show_window:
+        startupinfo = startupinfo_cls()
+        startupinfo.dwFlags |= startf_use_show_window
+        startupinfo.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
+        kwargs["startupinfo"] = startupinfo
+
     creation_flag = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     if creation_flag:
         kwargs["creationflags"] = creation_flag

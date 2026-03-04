@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -16,6 +17,23 @@ ALLOWED_URLS = {DEFAULT_URL}
 DEFAULT_DEST = "source/sd-inference-server"
 STATE_FILE = "source/sd_infer_state.json"
 LEGACY_DEST = ".third_party/sd-inference-server"
+
+
+def _windows_hidden_subprocess_kwargs() -> dict[str, object]:
+    if os.name != "nt":
+        return {}
+    kwargs: dict[str, object] = {}
+    startupinfo_cls = getattr(subprocess, "STARTUPINFO", None)
+    startf_use_show_window = getattr(subprocess, "STARTF_USESHOWWINDOW", 0)
+    if startupinfo_cls and startf_use_show_window:
+        startupinfo = startupinfo_cls()
+        startupinfo.dwFlags |= startf_use_show_window
+        startupinfo.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
+        kwargs["startupinfo"] = startupinfo
+    creation_flag = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    if creation_flag:
+        kwargs["creationflags"] = creation_flag
+    return kwargs
 
 
 def fail(message: str) -> None:
@@ -31,6 +49,7 @@ def run(cmd: list[str], *, cwd: Path | None = None) -> str:
         stderr=subprocess.PIPE,
         text=True,
         check=False,
+        **_windows_hidden_subprocess_kwargs(),
     )
     if result.returncode != 0:
         stderr = result.stderr.strip()
@@ -62,6 +81,7 @@ def is_git_repo(dest: Path) -> bool:
         stderr=subprocess.PIPE,
         text=True,
         check=False,
+        **_windows_hidden_subprocess_kwargs(),
     )
     return result.returncode == 0 and result.stdout.strip() == "true"
 
