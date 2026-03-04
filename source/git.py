@@ -5,6 +5,9 @@ import pygit2
 QDIFF_URL = "https://github.com/stormtrooper-TK-421/qDiffusion_UP"
 INFER_URL = "https://github.com/stormtrooper-TK-421/sd-inference-server"
 
+ROOT_REPO_PATH = "."
+INFER_REPO_PATH = os.path.join("source", "sd-inference-server")
+
 def git_repair(repo, origin):
     repo.remotes.delete("origin")
     repo.create_remote("origin", origin)
@@ -25,6 +28,7 @@ def git_last(path):
     try:
         repo = pygit2.Repository(os.path.abspath(path))
         commit = repo[repo.head.target]
+        commit_id = str(commit.id)
         message = commit.raw_message.decode('utf-8').strip()
         delta = time.time() - commit.commit_time
     except Exception as e:
@@ -49,11 +53,10 @@ def git_last(path):
             when = f"{count} {label}{suffix} ago"
             break
 
-    return commit, f"{message} ({commit.short_id}) ({when})"
+    return commit_id, f"{message} ({commit.short_id}) ({when})"
 
 def git_init(path, origin):
     repo = pygit2.init_repository(os.path.abspath(path), False)
     if not "origin" in repo.remotes:
         repo.create_remote("origin", origin)
     git_reset(path, origin)
-
