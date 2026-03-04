@@ -19,6 +19,8 @@ TMP_ROOT = REPO_ROOT / ".tmp"
 ML_CACHE_ROOT = TMP_ROOT / "ml_cache"
 GUI_REQUIREMENTS = REPO_ROOT / "requirements" / "gui.txt"
 PYPI_INDEX_URL = "https://pypi.org/simple"
+RUNTIME_PYTHON_VERSION = "3.14.3"
+RUNTIME_PYTHON_VERSION_TUPLE = (3, 14, 3)
 
 
 class CompatibilityProbeError(RuntimeError):
@@ -155,9 +157,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def ensure_supported_python() -> None:
-    if sys.version_info < (3, 14, 3):
+    if sys.version_info < RUNTIME_PYTHON_VERSION_TUPLE:
         version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-        raise SystemExit(f"Python 3.14.3+ is required. Current interpreter: {version}")
+        raise SystemExit(f"Python {RUNTIME_PYTHON_VERSION}+ is required. Current interpreter: {version}")
 
 
 def _require_file(path: Path, description: str) -> None:
@@ -218,85 +220,87 @@ def build_hermetic_env() -> dict[str, str]:
             "PYTHONDONTWRITEBYTECODE": "1",
             "PIP_NO_CACHE_DIR": "1",
             "PIP_CONFIG_FILE": os.devnull,
-            "QML_DISABLE_DISK_CACHE": "1",
-            "QT_DISABLE_SHADER_DISK_CACHE": "1",
-            "QSG_RHI_DISABLE_SHADER_DISK_CACHE": "1",
+            "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+            "PIP_PROGRESS_BAR": "off",
             "TMPDIR": str(TMP_ROOT),
             "TEMP": str(TMP_ROOT),
             "TMP": str(TMP_ROOT),
             "XDG_CACHE_HOME": str(TMP_ROOT / "xdg_cache"),
-            "XDG_CONFIG_HOME": str(TMP_ROOT / "xdg_config"),
-            "XDG_DATA_HOME": str(TMP_ROOT / "xdg_data"),
-            "XDG_STATE_HOME": str(TMP_ROOT / "xdg_state"),
-            "HF_HOME": str(ML_CACHE_ROOT / "hf_home"),
-            "TORCH_HOME": str(ML_CACHE_ROOT / "torch_home"),
-            "TRANSFORMERS_CACHE": str(ML_CACHE_ROOT / "transformers_cache"),
-            "DIFFUSERS_CACHE": str(ML_CACHE_ROOT / "diffusers_cache"),
+            "HF_HOME": str(ML_CACHE_ROOT / "huggingface"),
+            "TRANSFORMERS_CACHE": str(ML_CACHE_ROOT / "transformers"),
+            "HUGGINGFACE_HUB_CACHE": str(ML_CACHE_ROOT / "huggingface" / "hub"),
+            "TORCH_HOME": str(ML_CACHE_ROOT / "torch"),
+            "NUMBA_CACHE_DIR": str(ML_CACHE_ROOT / "numba"),
+            "QML_DISABLE_DISK_CACHE": "1",
+            "QT_DISABLE_SHADER_DISK_CACHE": "1",
+            "QSG_RHI_DISABLE_SHADER_DISK_CACHE": "1",
         }
     )
-
-    for key in (
-        "XDG_CACHE_HOME",
-        "XDG_CONFIG_HOME",
-        "XDG_DATA_HOME",
-        "XDG_STATE_HOME",
-        "HF_HOME",
-        "TORCH_HOME",
-        "TRANSFORMERS_CACHE",
-        "DIFFUSERS_CACHE",
-    ):
-        Path(clean_env[key]).mkdir(parents=True, exist_ok=True)
-
     return clean_env
 
 
-def install_requirements(env: dict[str, str]) -> None:
-    _require_file(GUI_REQUIREMENTS, "GUI requirements")
+def _write_non_qt_requirements_temp_file(non_qt_requirements: list[str]) -> Path:
+    tmp_file = tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        prefix="bootstrap-gui-nonqt-",
+        suffix=".txt",
+        delete=False,
+    )
+    with tmp_file:
+        for requirement in non_qt_requirements:
+            tmp_file.write(requirement + "\n")
+    return Path(tmp_file.name)
 
-    python_bin = VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / "python"
-    pip_base_cmd = [str(python_bin), "-m", "pip", "install", "--no-cache-dir", "--index-url", PYPI_INDEX_URL]
+
+def install_requirements(env: dict[str, str]) -> None:
+    _require_file(GUI_REQUIREMENTS, "GUI requirements file")
 
     non_qt_requirements, _qt_requirements = _split_gui_requirements()
-    if non_qt_requirements:
-        with tempfile.NamedTemporaryFile("w", delete=False, suffix=".txt", encoding="utf-8") as req_file:
-            req_file.write("\n".join(non_qt_requirements) + "\n")
-            temporary_requirements = Path(req_file.name)
-        try:
-            run([*pip_base_cmd, "-r", str(temporary_requirements)], env=env)
-        finally:
-            temporary_requirements.unlink(missing_ok=True)
+    non_qt_requirements_file = _write_non_qt_requirements_temp_file(non_qt_requirements)
+    try:
+        python_bin = VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / "python"
+        pip_base_cmd = [str(python_bin), "-m", "pip", "install", "--no-cache-dir", "--index-url", PYPI_INDEX_URL]
 
-    if not _pyside_meets_minimum(python_bin, env):
-        _install_pyside_runtime(python_bin, env)
+        run(
+            [
+                *pip_base_cmd,
+                "-r",
+                str(non_qt_requirements_file),
+            ],
+            env=env,
+        )
+
+        if not _pyside_meets_minimum(python_bin, env):
+            _install_pyside_runtime(python_bin, env)
+    finally:
+        non_qt_requirements_file.unlink(missing_ok=True)
 
 
 def probe_pinned_compatibility(env: dict[str, str]) -> None:
-    _require_file(GUI_REQUIREMENTS, "GUI requirements")
-
     python_bin = VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / "python"
+    _require_file(GUI_REQUIREMENTS, "GUI requirements file")
 
     non_qt_requirements, _qt_requirements = _split_gui_requirements()
-    if not non_qt_requirements:
-        return
-
-    with tempfile.NamedTemporaryFile("w", delete=False, suffix=".txt", encoding="utf-8") as req_file:
-        req_file.write("\n".join(non_qt_requirements) + "\n")
-        probe_requirements = Path(req_file.name)
-
-    probe_cmd = [
-        str(python_bin),
-        "-m",
-        "pip",
-        "download",
-        "--only-binary=:all:",
-        "--no-deps",
-        "-r",
-        str(probe_requirements),
-    ]
-    print(f"[bootstrap] compatibility probe: {GUI_REQUIREMENTS}")
+    non_qt_requirements_file = _write_non_qt_requirements_temp_file(non_qt_requirements)
     try:
+        command = [
+            str(python_bin),
+            "-m",
+            "pip",
+            "download",
+            "--no-deps",
+            "--only-binary=:all:",
+            "--no-cache-dir",
+            "--index-url",
+            PYPI_INDEX_URL,
+            "-r",
+            str(non_qt_requirements_file),
+            "-d",
+            os.devnull,
+        ]
         result = subprocess.run(
-            probe_cmd,
+            command,
             check=False,
             capture_output=True,
             text=True,
@@ -304,61 +308,54 @@ def probe_pinned_compatibility(env: dict[str, str]) -> None:
             env=env,
             **_windows_hidden_subprocess_kwargs(),
         )
+        if result.returncode != 0:
+            snippet = _tail_error_snippet(result.stdout or "", result.stderr or "")
+            command_text = " ".join(command)
+            raise CompatibilityProbeError(
+                "COMPATIBILITY PROBE FAILED: pinned startup requirements are not compatible with "
+                f"interpreter={_interpreter_version()} platform={_platform_tag()} :: "
+                f"requirements_file={GUI_REQUIREMENTS} :: pip_command={command_text} :: "
+                f"return_code={result.returncode} :: pip_snippet={snippet}"
+            )
     finally:
-        probe_requirements.unlink(missing_ok=True)
-
-    if result.returncode != 0:
-        interpreter = _interpreter_version()
-        platform_tag = _platform_tag()
-        printable_cmd = " ".join(probe_cmd)
-        snippet = _tail_error_snippet(result.stdout or "", result.stderr or "")
-        lines = [
-            "COMPATIBILITY PROBE FAILED",
-            f"interpreter={interpreter}",
-            f"platform_tag={platform_tag}",
-            f"requirements_file={GUI_REQUIREMENTS}",
-            f"pip_command={printable_cmd}",
-            f"pip={snippet}",
-        ]
-        raise CompatibilityProbeError("\n".join(lines))
+        non_qt_requirements_file.unlink(missing_ok=True)
 
 
-def ensure_pip_tooling(env: dict[str, str]) -> None:
+def ensure_pip_ready(env: dict[str, str]) -> None:
     python_bin = VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / "python"
+    pip_conflict_re = re.compile(
+        r"No module named pip|No module named\s+'?pip'?|No module named\s+pip",
+        re.IGNORECASE,
+    )
 
     try:
         run([str(python_bin), "-m", "pip", "--version"], env=env)
-    except RuntimeError:
+    except RuntimeError as exc:
         run([str(python_bin), "-m", "ensurepip", "--upgrade"], env=env)
         run([str(python_bin), "-m", "pip", "--version"], env=env)
 
-    run(
-        [
-            str(python_bin),
-            "-m",
-            "pip",
-            "install",
-            "-U",
-            "pip",
-            "setuptools",
-            "wheel",
-            "--no-cache-dir",
-            "--index-url",
-            PYPI_INDEX_URL,
-        ],
-        env=env,
-    )
+        marker_payload = (
+            f"python={_interpreter_version()}\n"
+            f"platform={_platform_tag()}\n"
+            "action=ensurepip-bootstrap\n"
+        )
+        (VENV_DIR / ".qdiff_pip_upgraded").write_text(marker_payload, encoding="utf-8")
+
+        message = str(exc)
+        if not pip_conflict_re.search(message):
+            raise
 
 
 def main() -> None:
     args = parse_args()
     ensure_supported_python()
     env = build_hermetic_env()
+
+    VENV_DIR.parent.mkdir(parents=True, exist_ok=True)
     create_or_recreate_venv(args.recreate, env)
-    ensure_pip_tooling(env)
+    ensure_pip_ready(env)
     probe_pinned_compatibility(env)
     install_requirements(env)
-    print("[bootstrap] Complete.")
 
 
 if __name__ == "__main__":
