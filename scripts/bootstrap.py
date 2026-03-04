@@ -52,7 +52,24 @@ def create_or_recreate_venv(recreate: bool, env: dict[str, str]) -> None:
 def run(cmd: list[str], env: dict[str, str]) -> None:
     printable = " ".join(cmd)
     print(f"[bootstrap] $ {printable}")
-    subprocess.run(cmd, check=True, cwd=str(REPO_ROOT), env=env)
+    result = subprocess.run(
+        cmd,
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+        env=env,
+    )
+    if result.returncode != 0:
+        stdout_text = (result.stdout or "(no stdout)").strip()
+        stderr_text = (result.stderr or "(no stderr)").strip()
+        print(f"[bootstrap] stdout: {stdout_text}")
+        print(f"[bootstrap] stderr: {stderr_text}")
+        raise RuntimeError(
+            "Command failed during bootstrap. "
+            f"Command: {printable} | return code: {result.returncode} | "
+            f"stdout: {stdout_text} | stderr: {stderr_text}"
+        )
 
 
 def build_hermetic_env() -> dict[str, str]:
