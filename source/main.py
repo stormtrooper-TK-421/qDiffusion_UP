@@ -90,6 +90,16 @@ def check(requirements, enforce_version=True):
     return missing_python_requirements(requirements, enforce_version)
 
 
+def _windows_hidden_subprocess_kwargs():
+    if not IS_WIN:
+        return {}
+    kwargs = {}
+    creation_flag = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    if creation_flag:
+        kwargs["creationflags"] = creation_flag
+    return kwargs
+
+
 class Installer(QThread):
     output = pyqtSignal(str)
     updated = pyqtSignal()
@@ -114,12 +124,14 @@ class Installer(QThread):
         
             args = [sys.executable.replace("pythonw", "python"), "-m"] + args
 
-            startupinfo = None
-            if IS_WIN:
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-
-            self.proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=os.environ, startupinfo=startupinfo)
+            self.proc = subprocess.Popen(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                env=os.environ,
+                **_windows_hidden_subprocess_kwargs(),
+            )
 
             output = ""
             while self.proc.poll() == None:
@@ -525,9 +537,7 @@ def exceptHook(exc_type, exc_value, exc_tb):
     if IS_WIN and os.path.exists(LAUNCHER) and not ERRORED:
         ERRORED = True
         message = f"{tb}\nError saved to crash.log"
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        subprocess.run([LAUNCHER, "-e", message], startupinfo=startupinfo)
+        subprocess.run([LAUNCHER, "-e", message], **_windows_hidden_subprocess_kwargs())
 
     QApplication.exit(-1)
 

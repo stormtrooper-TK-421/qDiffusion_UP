@@ -37,6 +37,16 @@ class PreflightStage:
     checker: Callable[[], None]
     remediation: str
 
+
+def _windows_hidden_subprocess_kwargs() -> dict[str, object]:
+    if not IS_WIN:
+        return {}
+    kwargs: dict[str, object] = {}
+    creation_flag = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    if creation_flag:
+        kwargs["creationflags"] = creation_flag
+    return kwargs
+
 def exceptHook(exc_type, exc_value, exc_tb):
     global ERRORED
     tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
@@ -57,9 +67,7 @@ def exceptHook(exc_type, exc_value, exc_tb):
     if IS_WIN and LAUNCHER.exists() and not ERRORED:
         ERRORED = True
         message = f"{tb}\nError saved to crash.log"
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        subprocess.run([str(LAUNCHER), "-e", message], startupinfo=startupinfo)
+        subprocess.run([str(LAUNCHER), "-e", message], **_windows_hidden_subprocess_kwargs())
 
 
 def _normalized(path_value: str) -> pathlib.Path:
@@ -109,6 +117,7 @@ def _ensure_runtime_requirements() -> None:
         capture_output=True,
         text=True,
         check=False,
+        **_windows_hidden_subprocess_kwargs(),
     )
     if bootstrap_result.returncode != 0:
         requirements = ", ".join(missing_gui_requirements)
@@ -202,17 +211,12 @@ def _compile_qml_resources() -> None:
     if qml_rc_module.exists():
         qml_rc_module.unlink()
 
-    startupinfo = None
-    if IS_WIN:
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-
     status = subprocess.run(
         ["pyside6-rcc", "-o", str(qml_rc_module), str(QML_QRC_PATH)],
         capture_output=True,
         text=True,
-        startupinfo=startupinfo,
         check=False,
+        **_windows_hidden_subprocess_kwargs(),
     )
     if status.returncode != 0:
         details = (
@@ -251,6 +255,7 @@ def _sync_inference_requirements() -> None:
         capture_output=True,
         text=True,
         check=False,
+        **_windows_hidden_subprocess_kwargs(),
     )
     if status.returncode != 0:
         details = (
