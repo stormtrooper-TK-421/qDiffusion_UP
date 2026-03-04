@@ -22,6 +22,28 @@ chmod +x "$SCRIPT"
 
 cd ..
 
+PYTHON_VERSION="3.14.3"
+STANDALONE_REPOS="astral-sh/python-build-standalone indygreg/python-build-standalone"
+
+resolve_standalone_python_url() {
+    local arch="$1"
+    local prefix="cpython-${PYTHON_VERSION}+"
+    local suffix="-${arch}-unknown-linux-gnu-install_only.tar.gz"
+
+    for repo in ${STANDALONE_REPOS}; do
+        local api_url="https://api.github.com/repos/${repo}/releases?per_page=100"
+        local url
+        url=$(curl -fsSL "$api_url" | grep -Eo 'https://[^"[:space:]]+' | grep "/${prefix}" | grep "${suffix}" | head -n 1 || true)
+        if [ -n "$url" ]; then
+            printf '%s\n' "$url"
+            return 0
+        fi
+    done
+
+    echo "Failed to resolve standalone Python ${PYTHON_VERSION} for linux/${arch}" >&2
+    return 1
+}
+
 if [ ! -d "./python" ]
 then
     flags=$(grep flags /proc/cpuinfo)
@@ -35,8 +57,9 @@ then
     if [[ $flags == *"avx512"* ]]; then
         arch="x86_64_v4"
     fi
-    echo "DOWNLOADING PYTHON ($arch)..."
-    curl -L --progress-bar "https://github.com/indygreg/python-build-standalone/releases/download/20230726/cpython-3.10.12+20230726-$arch-unknown-linux-gnu-install_only.tar.gz" -o "python.tar.gz"
+    echo "DOWNLOADING PYTHON ${PYTHON_VERSION} ($arch)..."
+    python_url="$(resolve_standalone_python_url "$arch")"
+    curl -L --progress-bar "$python_url" -o "python.tar.gz"
 
     echo "EXTRACTING PYTHON..."
     tar -xf "python.tar.gz"
