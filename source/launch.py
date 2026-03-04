@@ -29,6 +29,58 @@ QML_RC_PATH = QML_ROOT / "qml_rc.py"
 QML_QRC_PATH = QML_ROOT / "qml.qrc"
 
 
+def _candidate_portable_qt_dirs() -> dict[str, pathlib.Path | list[pathlib.Path] | None]:
+    pyside6_root = EXPECTED_VENV / "Lib" / "site-packages" / "PySide6"
+    qt_bin_candidates = [pyside6_root / "Qt" / "bin", pyside6_root]
+    plugin_candidates = [pyside6_root / "plugins", pyside6_root / "Qt" / "plugins"]
+    qml_candidates = [pyside6_root / "qml", pyside6_root / "Qt" / "qml"]
+
+    qt_bin_dirs = [path for path in qt_bin_candidates if path.exists()]
+    plugins_dir = next((path for path in plugin_candidates if path.exists()), None)
+    qml_dir = next((path for path in qml_candidates if path.exists()), None)
+
+    return {
+        "pyside6_root": pyside6_root if pyside6_root.exists() else None,
+        "qt_bin_dirs": qt_bin_dirs,
+        "plugins_dir": plugins_dir,
+        "qml_dir": qml_dir,
+    }
+
+
+def _configure_portable_qt_runtime() -> None:
+    dirs = _candidate_portable_qt_dirs()
+    qt_bin_dirs = dirs["qt_bin_dirs"] or []
+    plugins_dir = dirs["plugins_dir"]
+    qml_dir = dirs["qml_dir"]
+
+    if IS_WIN:
+        for dll_dir in qt_bin_dirs:
+            try:
+                os.add_dll_directory(str(dll_dir))
+            except (OSError, FileNotFoundError):
+                continue
+
+    if qt_bin_dirs:
+        existing_path = os.environ.get("PATH", "")
+        new_parts = [str(path) for path in qt_bin_dirs]
+        if existing_path:
+            new_parts.append(existing_path)
+        os.environ["PATH"] = os.pathsep.join(new_parts)
+
+    if plugins_dir:
+        os.environ["QT_PLUGIN_PATH"] = str(plugins_dir)
+        platform_plugin_dir = plugins_dir / "platforms"
+        if platform_plugin_dir.exists():
+            os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = str(platform_plugin_dir)
+
+    if qml_dir:
+        os.environ["QML2_IMPORT_PATH"] = str(qml_dir)
+        os.environ["QML_IMPORT_PATH"] = str(qml_dir)
+
+
+_configure_portable_qt_runtime()
+
+
 @dataclass(frozen=True)
 class PreflightStage:
     name: str
@@ -212,12 +264,17 @@ def _build_qml_qrc() -> None:
 
 
 def _compile_qml_resources() -> None:
+    import time
+
     qml_rc_module = QML_ROOT / "qml_rc.py"
     if qml_rc_module.exists():
         qml_rc_module.unlink()
 
+    local_rcc = EXPECTED_VENV / "Scripts" / "pyside6-rcc.exe"
+    rcc_command = str(local_rcc) if local_rcc.exists() else "pyside6-rcc"
+
     status = subprocess.run(
-        ["pyside6-rcc", "-o", str(qml_rc_module), str(QML_QRC_PATH)],
+        [rcc_command, "-o", str(qml_rc_module), str(QML_QRC_PATH)],
         capture_output=True,
         text=True,
         check=False,
@@ -236,7 +293,14 @@ def _compile_qml_resources() -> None:
 
         shutil.rmtree(tabs_copy, ignore_errors=True)
     if QML_QRC_PATH.exists():
-        QML_QRC_PATH.unlink()
+        for attempt in range(3):
+            try:
+                QML_QRC_PATH.unlink()
+                break
+            except PermissionError:
+                if attempt == 2:
+                    break
+                time.sleep(0.1)
 
 
 def _ensure_qml_resources_ready() -> None:
