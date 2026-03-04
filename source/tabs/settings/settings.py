@@ -16,12 +16,28 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.p
 SYNC_INFER_REQUIREMENTS_SCRIPT = os.path.join(REPO_ROOT, "scripts", "sync_infer_requirements.py")
 
 class Update(QThread):
+    def __init__(self, settings):
+        super().__init__(settings)
+        self.settings = settings
+        self.inference_commit_changed = False
+
     def run(self):
-        git.git_reset(".", git.QDIFF_URL)
-        inf = os.path.join("source", "sd-inference-server")
-        if os.path.exists(inf):
-            git.git_reset(inf, git.INFER_URL)
-            self._sync_infer_requirements()
+        pre_infer_commit, _ = self._safe_commit(git.INFER_REPO_PATH)
+
+        git.git_reset(git.ROOT_REPO_PATH, git.QDIFF_URL)
+        git.git_reset(git.INFER_REPO_PATH, git.INFER_URL)
+
+        post_infer_commit, _ = self._safe_commit(git.INFER_REPO_PATH)
+        self.inference_commit_changed = pre_infer_commit != post_infer_commit
+
+        self._sync_infer_requirements()
+        self.settings.refreshInstallerPackagePlan()
+
+    def _safe_commit(self, path):
+        try:
+            return git.git_last(path)
+        except Exception:
+            return None, None
 
     def _sync_infer_requirements(self):
         status = subprocess.run(
@@ -106,10 +122,10 @@ class Settings(QObject):
     @Slot()
     def update(self):
         self._updating = True
-        update = Update(self)
-        update.finished.connect(self.getGitInfo)
-        update.finished.connect(self.updateDone)
-        update.start()
+        self._updateThread = Update(self)
+        self._updateThread.finished.connect(self.getGitInfo)
+        self._updateThread.finished.connect(self.updateDone)
+        self._updateThread.start()
         self.updated.emit()
 
     @Slot()
@@ -155,30 +171,35 @@ class Settings(QObject):
     
     @Slot()
     def getGitInfo(self):
-        self._gitInfo = "Unknown"
-        self._gitServerInfo = ""
+        root_commit, root_label = self._repo_status(git.ROOT_REPO_PATH, "GUI")
+        infer_commit, infer_label = self._repo_status(git.INFER_REPO_PATH, "Inference")
 
-        commit, label = git.git_last(".")
-
-        if commit:
-            if self._currentGitInfo == None:
-                self._currentGitInfo = commit
-            self._gitInfo = label
-            self._needRestart = self._currentGitInfo != commit
-        elif not self._triedGitInit:
+        if root_commit is None and not self._triedGitInit:
             self._triedGitInit = True
-            git.git_init(".", git.QDIFF_URL)
+            git.git_init(git.ROOT_REPO_PATH, git.QDIFF_URL)
+            root_commit, root_label = self._repo_status(git.ROOT_REPO_PATH, "GUI")
 
-        server_dir = os.path.join("source","sd-inference-server")
-        if os.path.exists(server_dir):
-            try:
-                commit, label = git.git_last(server_dir)
-            except:
-                pass
-            if commit:
-                if self._currentGitServerInfo == None:
-                    self._currentGitServerInfo = commit
-                self._gitServerInfo = label
-                self._needRestart = self._needRestart or (self._currentGitServerInfo != commit)
+        if self._currentGitInfo is None:
+            self._currentGitInfo = root_commit
+        if self._currentGitServerInfo is None:
+            self._currentGitServerInfo = infer_commit
+
+        self._gitInfo = root_label
+        self._gitServerInfo = infer_label
+        self._needRestart = (self._currentGitInfo != root_commit) or (self._currentGitServerInfo != infer_commit)
 
         self.updated.emit()
+
+    def _repo_status(self, path, name):
+        commit, label = git.git_last(path)
+        if commit:
+            return commit, f"{name} repo ({path}) commit {commit[:12]}: {label}"
+        return None, f"{name} repo ({path}) commit unknown"
+
+    @Slot()
+    def refreshInstallerPackagePlan(self):
+        app = self.gui.parent()
+        coordinator = getattr(app, "coordinator", None) if app else None
+        if coordinator and hasattr(coordinator, "find_needed"):
+            coordinator.find_needed()
+            coordinator.updated.emit()

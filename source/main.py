@@ -494,6 +494,7 @@ def launch(url):
     
     translator = Translator(app)
     coordinator = Coordinator(app, engine)
+    app.coordinator = coordinator
     qmlRegisterSingletonType(Coordinator, "gui", 1, 0, "COORDINATOR", lambda _qml, _js, obj=coordinator: obj)
 
     # Startup routing is disk-only: no qrc fallback path or runtime branching.
