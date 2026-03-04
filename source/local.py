@@ -15,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 VENV_DIR = REPO_ROOT / ".venv"
 TMP_ROOT = REPO_ROOT / ".tmp"
 FETCH_SCRIPT = REPO_ROOT / "scripts" / "fetch_sd_infer.py"
+SYNC_INFER_REQUIREMENTS_SCRIPT = REPO_ROOT / "scripts" / "sync_infer_requirements.py"
 INFER_SERVER = REPO_ROOT / "source" / "sd-inference-server" / "server.py"
 LOCAL_HOST = "127.0.0.1"
 LOCAL_PORT = 28888
@@ -123,6 +124,20 @@ class LocalInference(remote.RemoteInference):
         if not INFER_SERVER.is_file():
             raise RuntimeError(f"Missing local inference server entrypoint: {INFER_SERVER}")
 
+    def _sync_inference_requirements(self, env: dict[str, str], python_bin: Path) -> None:
+        result = subprocess.run(
+            [str(python_bin), str(SYNC_INFER_REQUIREMENTS_SCRIPT)],
+            cwd=str(REPO_ROOT),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            **_windows_hidden_subprocess_kwargs(),
+        )
+        if result.returncode != 0:
+            raise RuntimeError(result.stdout.strip() or "sync_infer_requirements.py failed")
+
     def _wait_until_listening(self, timeout_s: float = 30.0) -> None:
         deadline = time.time() + timeout_s
         while time.time() < deadline and not self.stopping:
@@ -162,6 +177,7 @@ class LocalInference(remote.RemoteInference):
             python_bin = self._venv_python()
             env = self._build_env()
             self._run_fetch(env, python_bin)
+            self._sync_inference_requirements(env, python_bin)
             self._spawn_server(env, python_bin)
         except Exception as exc:
             details = "\n".join(self._server_logs[-10:])
