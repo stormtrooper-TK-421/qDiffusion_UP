@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import bootstrap
 
@@ -36,3 +37,48 @@ def test_bootstrap_source_has_no_inference_install_or_fetch_logic() -> None:
     assert "requirements/inference-server.txt" not in text
     assert "inference-base.txt" not in text
     assert "--mode" not in text
+
+
+def test_compatibility_probe_uses_single_requirements_download_call(monkeypatch) -> None:
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(bootstrap, "_require_file", lambda path, description: None)
+
+    def fake_subprocess_run(command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(bootstrap.subprocess, "run", fake_subprocess_run)
+
+    bootstrap.probe_pinned_compatibility(env={})
+
+    assert len(commands) == 1
+    assert "download" in commands[0]
+    assert "-r" in commands[0]
+    requirements_index = commands[0].index("-r") + 1
+    assert commands[0][requirements_index] == str(bootstrap.GUI_REQUIREMENTS)
+
+
+def test_compatibility_probe_failure_reports_single_pip_snippet(monkeypatch) -> None:
+    monkeypatch.setattr(bootstrap, "_require_file", lambda path, description: None)
+
+    def fake_subprocess_run(command, **kwargs):
+        return SimpleNamespace(
+            returncode=1,
+            stdout="Collecting pinned-package==1.0\nERROR: No matching distribution found for pinned-package==1.0\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(bootstrap.subprocess, "run", fake_subprocess_run)
+
+    try:
+        bootstrap.probe_pinned_compatibility(env={})
+    except bootstrap.CompatibilityProbeError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("Expected CompatibilityProbeError")
+
+    assert "COMPATIBILITY PROBE FAILED" in message
+    assert "requirements_file=" in message
+    assert "pip_command=" in message
+    assert "No matching distribution found" in message

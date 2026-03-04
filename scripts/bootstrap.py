@@ -55,22 +55,6 @@ def _tail_error_snippet(stdout: str, stderr: str, line_budget: int = 4) -> str:
     return " | ".join(source[-line_budget:])
 
 
-def _is_pinned_requirement(requirement: str) -> bool:
-    return "==" in requirement and not requirement.startswith(("-", "git+", "http://", "https://"))
-
-
-def _load_pinned_requirements(requirements_path: Path) -> list[str]:
-    pinned: list[str] = []
-    with requirements_path.open(encoding="utf-8") as requirements_file:
-        for raw_line in requirements_file:
-            requirement = raw_line.split("#", 1)[0].strip()
-            if not requirement:
-                continue
-            if _is_pinned_requirement(requirement):
-                pinned.append(requirement)
-    return pinned
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Create/update the repository's single hermetic .venv for startup/GUI readiness only",
@@ -191,60 +175,48 @@ def install_requirements(env: dict[str, str]) -> None:
 def probe_pinned_compatibility(env: dict[str, str]) -> None:
     _require_file(GUI_REQUIREMENTS, "GUI requirements")
 
-    pinned_requirements = _load_pinned_requirements(GUI_REQUIREMENTS)
-    if not pinned_requirements:
-        return
-
     python_bin = VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / "python"
     PROBE_WHEEL_DIR.mkdir(parents=True, exist_ok=True)
 
-    failures: list[dict[str, str]] = []
-    for requirement in pinned_requirements:
-        probe_cmd = [
-            str(python_bin),
-            "-m",
-            "pip",
-            "download",
-            "--no-cache-dir",
-            "--only-binary=:all:",
-            "--no-deps",
-            "--index-url",
-            PYPI_INDEX_URL,
-            "--dest",
-            str(PROBE_WHEEL_DIR),
-            requirement,
-        ]
-        print(f"[bootstrap] compatibility probe: {requirement}")
-        result = subprocess.run(
-            probe_cmd,
-            check=False,
-            capture_output=True,
-            text=True,
-            cwd=str(REPO_ROOT),
-            env=env,
-            **_windows_hidden_subprocess_kwargs(),
-        )
-        if result.returncode != 0:
-            failures.append(
-                {
-                    "requirement": requirement,
-                    "snippet": _tail_error_snippet(result.stdout or "", result.stderr or ""),
-                }
-            )
+    probe_cmd = [
+        str(python_bin),
+        "-m",
+        "pip",
+        "download",
+        "--no-cache-dir",
+        "--only-binary=:all:",
+        "--no-deps",
+        "--index-url",
+        PYPI_INDEX_URL,
+        "--dest",
+        str(PROBE_WHEEL_DIR),
+        "-r",
+        str(GUI_REQUIREMENTS),
+    ]
+    print(f"[bootstrap] compatibility probe: {GUI_REQUIREMENTS}")
+    result = subprocess.run(
+        probe_cmd,
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+        env=env,
+        **_windows_hidden_subprocess_kwargs(),
+    )
 
-    if failures:
+    if result.returncode != 0:
         interpreter = _interpreter_version()
         platform_tag = _platform_tag()
+        printable_cmd = " ".join(probe_cmd)
+        snippet = _tail_error_snippet(result.stdout or "", result.stderr or "")
         lines = [
             "COMPATIBILITY PROBE FAILED",
             f"interpreter={interpreter}",
             f"platform_tag={platform_tag}",
-            "incompatible pins:",
+            f"requirements_file={GUI_REQUIREMENTS}",
+            f"pip_command={printable_cmd}",
+            f"pip={snippet}",
         ]
-        for failure in failures:
-            lines.append(
-                f" - {failure['requirement']} | interpreter={interpreter} | platform_tag={platform_tag} | pip={failure['snippet']}"
-            )
         raise CompatibilityProbeError("\n".join(lines))
 
 
