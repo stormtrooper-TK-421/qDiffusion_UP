@@ -13,6 +13,7 @@ import glob
 import json
 import hashlib
 import argparse
+import importlib
 
 os.environ["QT_DEBUG_PLUGINS"] = "1"
 os.environ["QML_IMPORT_TRACE"] = "1"
@@ -46,6 +47,26 @@ SOURCE_DIR = os.path.join(REPO_ROOT, "source")
 QML_DIR = os.path.join(SOURCE_DIR, "qml")
 INFERENCE_SERVER_REQUIREMENTS = os.path.join(REPO_ROOT, "requirements", "inference-server.txt")
 GUI_CORE_REQUIREMENTS = os.path.join(REPO_ROOT, "requirements", "gui.txt")
+
+
+def _register_qml_resources():
+    """Load generated qml resource module so qrc:/ URLs resolve at runtime."""
+    module_name = "qml.qml_rc"
+    try:
+        importlib.import_module(module_name)
+    except Exception as exc:
+        timestamp = datetime.datetime.now().isoformat()
+        crash_message = (
+            f"GUI {timestamp}\n"
+            "CRITICAL: Failed to register QML resources via import qml.qml_rc. "
+            "qrc:/ assets will not be available.\n"
+            "Run launch preflight to regenerate source/qml/qml_rc.py (pyside6-rcc).\n"
+            f"Error: {exc!r}\n\n"
+        )
+        with open("crash.log", "a", encoding="utf-8") as crash_log:
+            crash_log.write(crash_message)
+        print(crash_message.strip())
+        raise RuntimeError("Unable to import generated QML resource module qml.qml_rc") from exc
 
 
 def _qml_local_url(*relative_parts):
@@ -501,6 +522,9 @@ def launch(url):
     coordinator = Coordinator(app, engine)
     app.coordinator = coordinator
     qmlRegisterSingletonType(Coordinator, "gui", 1, 0, "COORDINATOR", lambda _qml, _js, obj=coordinator: obj)
+
+    # Register qrc resources before any startup path can load Main.qml dependencies.
+    _register_qml_resources()
 
     # Startup routing is disk-only: no qrc fallback path or runtime branching.
     engine.rootContext().setContextProperty("STARTUP_QML_DIR_URL", _qml_local_url("").toString())
