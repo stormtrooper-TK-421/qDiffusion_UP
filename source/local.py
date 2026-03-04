@@ -19,6 +19,15 @@ INFER_SERVER = REPO_ROOT / "source" / "sd-inference-server" / "server.py"
 LOCAL_HOST = "127.0.0.1"
 LOCAL_PORT = 28888
 
+def _windows_hidden_subprocess_kwargs() -> dict[str, object]:
+    if os.name != "nt":
+        return {}
+    kwargs: dict[str, object] = {}
+    creation_flag = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    if creation_flag:
+        kwargs["creationflags"] = creation_flag
+    return kwargs
+
 
 class LocalInference(remote.RemoteInference):
     response = pyqtSignal(object)
@@ -100,6 +109,7 @@ class LocalInference(remote.RemoteInference):
             stderr=subprocess.STDOUT,
             text=True,
             check=False,
+            **_windows_hidden_subprocess_kwargs(),
         )
         if result.returncode != 0:
             raise RuntimeError(result.stdout.strip() or "fetch_sd_infer.py failed")
@@ -134,6 +144,7 @@ class LocalInference(remote.RemoteInference):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            **_windows_hidden_subprocess_kwargs(),
         )
         self._log_thread = threading.Thread(target=self._read_server_logs, daemon=True)
         self._log_thread.start()

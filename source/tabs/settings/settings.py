@@ -15,6 +15,17 @@ import git
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 SYNC_INFER_REQUIREMENTS_SCRIPT = os.path.join(REPO_ROOT, "scripts", "sync_infer_requirements.py")
 
+
+def _windows_hidden_subprocess_kwargs() -> dict[str, object]:
+    if not IS_WIN:
+        return {}
+    kwargs: dict[str, object] = {}
+    creation_flag = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    if creation_flag:
+        kwargs["creationflags"] = creation_flag
+    return kwargs
+
+
 class Update(QThread):
     status = Signal(str)
     failed = Signal(str)
@@ -67,6 +78,7 @@ class Update(QThread):
             capture_output=True,
             text=True,
             check=False,
+            **_windows_hidden_subprocess_kwargs(),
         )
         if status.returncode != 0:
             details = (status.stderr or status.stdout or "(no output)").strip()

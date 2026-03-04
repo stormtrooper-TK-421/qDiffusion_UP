@@ -25,6 +25,18 @@ class CompatibilityProbeError(RuntimeError):
     """Raised when one or more pinned requirements are incompatible with this interpreter/platform."""
 
 
+def _windows_hidden_subprocess_kwargs() -> dict[str, object]:
+    """Return subprocess kwargs that suppress console windows on Windows."""
+    if os.name != "nt":
+        return {}
+
+    kwargs: dict[str, object] = {}
+    creation_flag = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    if creation_flag:
+        kwargs["creationflags"] = creation_flag
+    return kwargs
+
+
 def _interpreter_version() -> str:
     return f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
 
@@ -100,6 +112,7 @@ def run(cmd: list[str], env: dict[str, str]) -> None:
         text=True,
         cwd=str(REPO_ROOT),
         env=env,
+        **_windows_hidden_subprocess_kwargs(),
     )
     if result.returncode != 0:
         stdout_text = (result.stdout or "(no stdout)").strip()
@@ -209,6 +222,7 @@ def probe_pinned_compatibility(env: dict[str, str]) -> None:
             text=True,
             cwd=str(REPO_ROOT),
             env=env,
+            **_windows_hidden_subprocess_kwargs(),
         )
         if result.returncode != 0:
             failures.append(
