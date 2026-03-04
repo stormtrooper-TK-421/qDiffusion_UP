@@ -23,7 +23,18 @@ Information is available on the [Wiki](https://github.com/stormtrooper-TK-421/qD
 
 ### Python requirement files
 - `requirements/gui.txt` = mandatory for launch + installer UI.
-- `source/requirements_inference.txt` = optional post-mode dependencies.
+- `requirements/inference-server.txt` = canonical optional inference dependencies for installer planning.
+
+### Dependency phase split contract (developers)
+- **Phase A (bootstrap/launch):** only `requirements/gui.txt` is allowed.
+  - Allowed examples: `PySide6`, `Pillow`, `websockets`, `pygit2`.
+  - Forbidden examples in phase A: `diffusers`, `transformers`, `accelerate`, `k_diffusion`, `segment-anything`, `timm`, `ultralytics`.
+- **Phase B (installer/inference planning):** only `requirements/inference-server.txt` is allowed.
+  - Installer planning code must read `requirements/inference-server.txt` and must not read legacy inference sources.
+  - Forbidden references in planner code: `requirements/inference-base.txt`, `source/sd-inference-server/requirements.txt`.
+- Enforcement: run `scripts/check_dependency_phase_split.py` (also run by `scripts/prebuild_check.py`).
+
+See `docs/dependency_phase_contract.md` for the full developer contract.
 
 ### Bootstrap scope
 - `scripts/bootstrap.py` is only for startup/GUI readiness.
