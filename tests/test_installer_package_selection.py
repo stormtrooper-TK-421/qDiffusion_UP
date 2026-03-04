@@ -50,16 +50,14 @@ def _build_get_needed(is_win: bool):
     return namespace["_mode_backend_needed"], namespace["get_needed"]
 
 
-def _build_install_step_methods(is_win: bool):
-    pytorch_index_source = _get_coordinator_method("_pytorch_index_url")
+def _build_install_step_method(is_win: bool):
     build_steps_source = _get_coordinator_method("_build_install_steps")
     namespace = {
         "IS_WIN": is_win,
         "INFERENCE_SERVER_REQUIREMENTS": "requirements/inference-server.txt",
     }
-    exec(pytorch_index_source, namespace)
     exec(build_steps_source, namespace)
-    return namespace["_pytorch_index_url"], namespace["_build_install_steps"]
+    return namespace["_build_install_steps"]
 
 
 def _coordinator_stub(mode: str):
@@ -74,10 +72,6 @@ def _coordinator_stub(mode: str):
     coordinator.torch_version = "2.1.0"
     coordinator.torchvision_version = "0.16.0"
     coordinator.directml_version = ""
-    coordinator.nvidia_torch_version = "2.1.0+cu118"
-    coordinator.nvidia_torchvision_version = "0.16+cu118"
-    coordinator.amd_torch_version = "2.1.0+rocm5.6"
-    coordinator.amd_torchvision_version = "0.16.0+rocm5.6"
     coordinator.amd_torch_directml_version = "0.2.0.dev230426"
     return coordinator
 
@@ -98,12 +92,7 @@ def test_get_needed_nvidia_is_inference_only() -> None:
 
     needed = get_needed(coordinator)
 
-    assert needed == [
-        "torch==2.1.0+cu118",
-        "torchvision==0.16+cu118",
-        "diffusers==0.27.2",
-        "accelerate==0.27.2",
-    ]
+    assert needed == ["diffusers==0.27.2", "accelerate==0.27.2"]
     assert "pip" not in needed
     assert "wheel" not in needed
     assert "PySide6" not in needed
@@ -116,12 +105,7 @@ def test_get_needed_amd_is_inference_only() -> None:
 
     needed = get_needed(coordinator)
 
-    assert needed == [
-        "torch==2.1.0+rocm5.6",
-        "torchvision==0.16.0+rocm5.6",
-        "diffusers==0.27.2",
-        "accelerate==0.27.2",
-    ]
+    assert needed == ["diffusers==0.27.2", "accelerate==0.27.2"]
     assert "pip" not in needed
     assert "wheel" not in needed
     assert "PySide6" not in needed
@@ -156,24 +140,20 @@ def test_mode_switching_changes_only_backend_delta() -> None:
     amd_needed = get_needed(amd)
     remote_needed = get_needed(remote)
 
-    assert nvidia_needed[-2:] == amd_needed[-2:] == remote_needed
-    assert nvidia_needed[:-2] == ["torch==2.1.0+cu118", "torchvision==0.16+cu118"]
-    assert amd_needed[:-2] == ["torch==2.1.0+rocm5.6", "torchvision==0.16.0+rocm5.6"]
+    assert nvidia_needed == amd_needed == remote_needed
 
 
 def test_build_install_steps_uses_single_requirements_install() -> None:
-    pytorch_index, build_steps = _build_install_step_methods(is_win=False)
+    build_steps = _build_install_step_method(is_win=False)
 
     class Stub:
         pass
 
     coordinator = Stub()
-    coordinator._pytorch_index_url = lambda mode: pytorch_index(coordinator, mode)
-
     steps = build_steps(
         coordinator,
         "nvidia",
-        ["torch==2.1.0+cu118", "torchvision==0.16+cu118"],
+        ["torch-directml==0.2.0.dev230426"],
         ["diffusers==0.27.2", "accelerate==0.27.2"],
     )
 
@@ -182,10 +162,7 @@ def test_build_install_steps_uses_single_requirements_install() -> None:
         "pip",
         "install",
         "-U",
-        "torch==2.1.0+cu118",
-        "torchvision==0.16+cu118",
-        "--index-url",
-        "https://download.pytorch.org/whl/cu118",
+        "torch-directml==0.2.0.dev230426",
         "--progress-bar",
         "raw",
     ]
@@ -201,14 +178,12 @@ def test_build_install_steps_uses_single_requirements_install() -> None:
 
 
 def test_build_install_steps_adds_windows_binary_only_flag_for_inference_requirements() -> None:
-    pytorch_index, build_steps = _build_install_step_methods(is_win=True)
+    build_steps = _build_install_step_method(is_win=True)
 
     class Stub:
         pass
 
     coordinator = Stub()
-    coordinator._pytorch_index_url = lambda mode: pytorch_index(coordinator, mode)
-
     steps = build_steps(
         coordinator,
         "amd",
