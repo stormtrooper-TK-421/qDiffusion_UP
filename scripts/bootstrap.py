@@ -18,7 +18,6 @@ TMP_ROOT = REPO_ROOT / ".tmp"
 ML_CACHE_ROOT = TMP_ROOT / "ml_cache"
 GUI_REQUIREMENTS = REPO_ROOT / "requirements" / "gui.txt"
 PYPI_INDEX_URL = "https://pypi.org/simple"
-PROBE_WHEEL_DIR = TMP_ROOT / "compat_probe_wheels"
 
 
 class CompatibilityProbeError(RuntimeError):
@@ -176,20 +175,14 @@ def probe_pinned_compatibility(env: dict[str, str]) -> None:
     _require_file(GUI_REQUIREMENTS, "GUI requirements")
 
     python_bin = VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / "python"
-    PROBE_WHEEL_DIR.mkdir(parents=True, exist_ok=True)
 
     probe_cmd = [
         str(python_bin),
         "-m",
         "pip",
         "download",
-        "--no-cache-dir",
         "--only-binary=:all:",
         "--no-deps",
-        "--index-url",
-        PYPI_INDEX_URL,
-        "--dest",
-        str(PROBE_WHEEL_DIR),
         "-r",
         str(GUI_REQUIREMENTS),
     ]

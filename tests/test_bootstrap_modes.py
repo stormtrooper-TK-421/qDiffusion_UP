@@ -54,6 +54,9 @@ def test_compatibility_probe_uses_single_requirements_download_call(monkeypatch)
 
     assert len(commands) == 1
     assert "download" in commands[0]
+    assert commands[0].count("-r") == 1
+    assert "--only-binary=:all:" in commands[0]
+    assert "--no-deps" in commands[0]
     assert "-r" in commands[0]
     requirements_index = commands[0].index("-r") + 1
     assert commands[0][requirements_index] == str(bootstrap.GUI_REQUIREMENTS)
