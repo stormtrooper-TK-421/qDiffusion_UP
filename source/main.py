@@ -10,7 +10,6 @@ import datetime
 import subprocess
 import os
 import glob
-import shutil
 import json
 import hashlib
 import argparse
@@ -38,6 +37,11 @@ LAUNCHER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 APPID = "arenasys.qdiffusion." + hashlib.md5(LAUNCHER.encode("utf-8")).hexdigest()
 ERRORED = False
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCRIPTS_DIR = os.path.join(REPO_ROOT, "scripts")
+if SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, SCRIPTS_DIR)
+
+from env_common import build_env as build_isolated_env
 SOURCE_DIR = os.path.join(REPO_ROOT, "source")
 QML_DIR = os.path.join(SOURCE_DIR, "qml")
 INFERENCE_SERVER_REQUIREMENTS = os.path.join(REPO_ROOT, "requirements", "inference-server.txt")
@@ -123,7 +127,7 @@ class Installer(QThread):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                env=os.environ,
+                env=build_isolated_env(),
                 **_windows_hidden_subprocess_kwargs(),
             )
 
@@ -184,11 +188,6 @@ class Coordinator(QObject):
         self._mode = 0
         self.in_venv = "VIRTUAL_ENV" in os.environ
 
-        self.venv_cache = None
-        if self.in_venv:
-            self.venv_cache = os.path.join(os.environ["VIRTUAL_ENV"], "cache")
-            if "PIP_CONFIG_FILE" in os.environ and not "PIP_CACHE_DIR" in os.environ:
-                os.environ["PIP_CACHE_DIR"] = self.venv_cache
 
         self.override = False
 
@@ -270,9 +269,8 @@ class Coordinator(QObject):
             json.dump(cfg, f, indent=4)
     
     def clearCache(self):
-        # if the cache is ours then clear it
-        if os.environ.get("PIP_CACHE_DIR") == self.venv_cache:
-            shutil.rmtree(self.venv_cache, ignore_errors=True)
+        # Installer subprocesses are no-cache; keep compatibility for callers.
+        return
 
     @pyqtProperty(bool, notify=updated)
     def enforceVersions(self):
