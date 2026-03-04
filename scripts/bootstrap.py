@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
+import sysconfig
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -16,6 +18,45 @@ TMP_ROOT = REPO_ROOT / ".tmp"
 ML_CACHE_ROOT = TMP_ROOT / "ml_cache"
 GUI_REQUIREMENTS = REPO_ROOT / "requirements" / "gui.txt"
 PYPI_INDEX_URL = "https://pypi.org/simple"
+PROBE_WHEEL_DIR = TMP_ROOT / "compat_probe_wheels"
+
+
+class CompatibilityProbeError(RuntimeError):
+    """Raised when one or more pinned requirements are incompatible with this interpreter/platform."""
+
+
+def _interpreter_version() -> str:
+    return f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+
+
+def _platform_tag() -> str:
+    return sysconfig.get_platform()
+
+
+def _tail_error_snippet(stdout: str, stderr: str, line_budget: int = 4) -> str:
+    combined_lines = [line.strip() for line in f"{stdout}\n{stderr}".splitlines() if line.strip()]
+    if not combined_lines:
+        return "(no pip error output)"
+
+    error_lines = [line for line in combined_lines if re.search(r"(error|failed|no matching)", line, re.IGNORECASE)]
+    source = error_lines if error_lines else combined_lines
+    return " | ".join(source[-line_budget:])
+
+
+def _is_pinned_requirement(requirement: str) -> bool:
+    return "==" in requirement and not requirement.startswith(("-", "git+", "http://", "https://"))
+
+
+def _load_pinned_requirements(requirements_path: Path) -> list[str]:
+    pinned: list[str] = []
+    with requirements_path.open(encoding="utf-8") as requirements_file:
+        for raw_line in requirements_file:
+            requirement = raw_line.split("#", 1)[0].strip()
+            if not requirement:
+                continue
+            if _is_pinned_requirement(requirement):
+                pinned.append(requirement)
+    return pinned
 
 
 def parse_args() -> argparse.Namespace:
@@ -134,6 +175,65 @@ def install_requirements(env: dict[str, str]) -> None:
     run([*pip_base_cmd, "-r", str(GUI_REQUIREMENTS)], env=env)
 
 
+def probe_pinned_compatibility(env: dict[str, str]) -> None:
+    _require_file(GUI_REQUIREMENTS, "GUI requirements")
+
+    pinned_requirements = _load_pinned_requirements(GUI_REQUIREMENTS)
+    if not pinned_requirements:
+        return
+
+    python_bin = VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / "python"
+    PROBE_WHEEL_DIR.mkdir(parents=True, exist_ok=True)
+
+    failures: list[dict[str, str]] = []
+    for requirement in pinned_requirements:
+        probe_cmd = [
+            str(python_bin),
+            "-m",
+            "pip",
+            "download",
+            "--no-cache-dir",
+            "--only-binary=:all:",
+            "--no-deps",
+            "--index-url",
+            PYPI_INDEX_URL,
+            "--dest",
+            str(PROBE_WHEEL_DIR),
+            requirement,
+        ]
+        print(f"[bootstrap] compatibility probe: {requirement}")
+        result = subprocess.run(
+            probe_cmd,
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+            env=env,
+        )
+        if result.returncode != 0:
+            failures.append(
+                {
+                    "requirement": requirement,
+                    "snippet": _tail_error_snippet(result.stdout or "", result.stderr or ""),
+                }
+            )
+
+    if failures:
+        interpreter = _interpreter_version()
+        platform_tag = _platform_tag()
+        lines = [
+            "COMPATIBILITY PROBE FAILED",
+            f"interpreter={interpreter}",
+            f"platform_tag={platform_tag}",
+            "incompatible pins:",
+        ]
+        for failure in failures:
+            lines.append(
+                f" - {failure['requirement']} | interpreter={interpreter} | platform_tag={platform_tag} | pip={failure['snippet']}"
+            )
+        raise CompatibilityProbeError("\n".join(lines))
+
+
 def ensure_pip_tooling(env: dict[str, str]) -> None:
     python_bin = VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / "python"
 
@@ -167,6 +267,7 @@ def main() -> None:
     env = build_hermetic_env()
     create_or_recreate_venv(args.recreate, env)
     ensure_pip_tooling(env)
+    probe_pinned_compatibility(env)
     install_requirements(env)
     print("[bootstrap] Complete.")
 

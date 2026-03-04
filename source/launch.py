@@ -114,9 +114,14 @@ def _ensure_runtime_requirements() -> None:
         requirements = ", ".join(missing_gui_requirements)
         bootstrap_stdout = (bootstrap_result.stdout or "(no stdout)").strip()
         bootstrap_stderr = (bootstrap_result.stderr or "(no stderr)").strip()
+        compatibility_report = _extract_compatibility_probe_report(bootstrap_stdout, bootstrap_stderr)
+        compatibility_details = ""
+        if compatibility_report:
+            compatibility_details = f" Compatibility probe details: {compatibility_report}."
         raise RuntimeError(
             "Failed to bootstrap GUI dependencies. "
             f"Missing requirements before bootstrap: {requirements}. "
+            f"{compatibility_details}"
             f"bootstrap stdout: {bootstrap_stdout} | bootstrap stderr: {bootstrap_stderr}"
         )
 
@@ -127,6 +132,17 @@ def _ensure_runtime_requirements() -> None:
             "GUI runtime requirements are still missing after bootstrap: "
             f"{requirements}. Run scripts/bootstrap.py to reinstall GUI dependencies."
         )
+
+
+def _extract_compatibility_probe_report(stdout: str, stderr: str) -> str:
+    marker = "COMPATIBILITY PROBE FAILED"
+    for source in (stdout, stderr):
+        lines = [line.strip() for line in source.splitlines() if line.strip()]
+        for index, line in enumerate(lines):
+            if marker not in line:
+                continue
+            return " ; ".join(lines[index:])
+    return ""
 
 
 def _log_preflight(stage: str, status: str, message: str, remediation: str | None = None) -> None:
