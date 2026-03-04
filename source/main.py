@@ -43,6 +43,7 @@ QML_DIR = os.path.join(SOURCE_DIR, "qml")
 SYNC_INFER_REQUIREMENTS_SCRIPT = os.path.join(REPO_ROOT, "scripts", "sync_infer_requirements.py")
 INFERENCE_BASE_REQUIREMENTS = os.path.join(REPO_ROOT, "requirements", "inference-base.txt")
 INFERENCE_SERVER_REQUIREMENTS = os.path.join(REPO_ROOT, "requirements", "inference-server.txt")
+GUI_CORE_REQUIREMENTS = os.path.join(REPO_ROOT, "requirements", "gui.txt")
 
 
 def _qml_local_url(*relative_parts):
@@ -244,10 +245,30 @@ class Coordinator(QObject):
         
         _sync_inference_requirements()
 
+        self.core = _load_requirements(GUI_CORE_REQUIREMENTS)
+
         inference_base = _load_requirements(INFERENCE_BASE_REQUIREMENTS)
         inference_server = _load_requirements(INFERENCE_SERVER_REQUIREMENTS)
         self.optional = list(dict.fromkeys([*inference_base, *inference_server]))
         self.optional_need = check(self.optional, self.enforce)
+
+    def _mode_backend_needed(self, mode):
+        backend_needed = []
+        if mode == "nvidia":
+            if "+cu" not in self.torch_version:
+                backend_needed += ["torch==" + self.nvidia_torch_version]
+            if "+cu" not in self.torchvision_version:
+                backend_needed += ["torchvision==" + self.nvidia_torchvision_version]
+        elif mode == "amd":
+            if IS_WIN:
+                if not self.directml_version:
+                    backend_needed += ["torch-directml==" + self.amd_torch_directml_version]
+            else:
+                if "+rocm" not in self.torch_version:
+                    backend_needed += ["torch==" + self.amd_torch_version]
+                if "+rocm" not in self.torchvision_version:
+                    backend_needed += ["torchvision==" + self.amd_torchvision_version]
+        return backend_needed
     
     @pyqtProperty(list, constant=True)
     def modes(self):
@@ -311,28 +332,8 @@ class Coordinator(QObject):
 
     def get_needed(self):
         mode = self._modes[self._mode]
-        needed = []
-        if mode == "nvidia":
-            if not "+cu" in self.torch_version:
-                needed += ["torch=="+self.nvidia_torch_version]
-            if not "+cu" in self.torchvision_version:
-                needed += ["torchvision=="+self.nvidia_torchvision_version]
-            needed += self.optional_need
-        if mode == "amd":
-            if IS_WIN:
-                if not self.directml_version:
-                    needed += ["torch-directml==" + self.amd_torch_directml_version]
-            else:
-                if not "+rocm" in self.torch_version:
-                    needed += ["torch=="+self.amd_torch_version]
-                if not "+rocm" in self.torchvision_version:
-                    needed += ["torchvision=="+self.amd_torchvision_version]
-            needed += self.optional_need
-
-        if needed:
-            needed = ["pip", "wheel"] + needed
-
-        return needed
+        backend_needed = self._mode_backend_needed(mode)
+        return [*backend_needed, *self.optional_need]
 
     @pyqtSlot()
     def load(self):
