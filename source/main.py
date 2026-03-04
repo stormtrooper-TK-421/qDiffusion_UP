@@ -13,6 +13,7 @@ import json
 import hashlib
 import argparse
 import importlib
+import time
 import shutil
 from qml_compat import singleton_instance_provider
 from pathlib import Path
@@ -40,6 +41,7 @@ LAUNCHER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 APPID = "arenasys.qdiffusion." + hashlib.md5(LAUNCHER.encode("utf-8")).hexdigest()
 ERRORED = False
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+EXPECTED_VENV = os.path.join(REPO_ROOT, ".venv")
 SCRIPTS_DIR = os.path.join(REPO_ROOT, "scripts")
 if SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, SCRIPTS_DIR)
@@ -50,6 +52,26 @@ QML_DIR = os.path.join(SOURCE_DIR, "qml")
 TAB_DIR = os.path.join(SOURCE_DIR, "tabs")
 INFERENCE_SERVER_REQUIREMENTS = os.path.join(REPO_ROOT, "requirements", "inference-server.txt")
 GUI_CORE_REQUIREMENTS = os.path.join(REPO_ROOT, "requirements", "gui.txt")
+
+
+
+def _portable_pyside6_root() -> Path:
+    return Path(EXPECTED_VENV) / "Lib" / "site-packages" / "PySide6"
+
+
+def _portable_qml_import_dir() -> Path | None:
+    pyside6_root = _portable_pyside6_root()
+    for candidate in (pyside6_root / "qml", pyside6_root / "Qt" / "qml"):
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _portable_rcc_command() -> str:
+    local_rcc = Path(EXPECTED_VENV) / "Scripts" / "pyside6-rcc.exe"
+    if local_rcc.exists():
+        return str(local_rcc)
+    return "pyside6-rcc"
 
 
 def buildQMLRc():
@@ -118,7 +140,7 @@ def buildQMLPy():
         )
 
     result = subprocess.run(
-        ["pyside6-rcc", "-o", str(qml_rc_module), str(qml_qrc)],
+        [_portable_rcc_command(), "-o", str(qml_rc_module), str(qml_qrc)],
         capture_output=True,
         text=True,
         check=False,
@@ -143,7 +165,14 @@ def buildQMLPy():
     if generated_tabs_root.exists():
         shutil.rmtree(generated_tabs_root, ignore_errors=True)
     if qml_qrc.exists():
-        qml_qrc.unlink()
+        for attempt in range(3):
+            try:
+                qml_qrc.unlink()
+                break
+            except PermissionError:
+                if attempt == 2:
+                    break
+                time.sleep(0.1)
 
 
 def _register_qml_resources():
@@ -558,8 +587,10 @@ class Coordinator(QObject):
         return 1.0
     
 def launch(url):
-    buildQMLRc()
-    buildQMLPy()
+    qml_rc_module = Path(QML_DIR) / "qml_rc.py"
+    if not qml_rc_module.exists():
+        buildQMLRc()
+        buildQMLPy()
     _register_qml_resources()
 
     import misc
@@ -602,6 +633,9 @@ def launch(url):
     app.endpoint = url
     
     engine = QQmlApplicationEngine()
+    portable_qml_dir = _portable_qml_import_dir()
+    if portable_qml_dir is not None:
+        engine.addImportPath(str(portable_qml_dir))
     qml_warnings: list = []
 
     def _capture_qml_warnings(warnings_list):
@@ -650,13 +684,15 @@ def launch(url):
         with open("crash.log", "a", encoding="utf-8") as f:
             f.write(crash_message)
         print(crash_message.strip())
-        sys.exit(-1)
+        app.quit()
+        QCoreApplication.exit(-1)
+        return -1
 
     if IS_WIN:
         hwnd = engine.rootObjects()[0].winId()
         misc.setWindowProperties(hwnd, APPID, NAME, LAUNCHER)
 
-    sys.exit(app.exec())
+    return app.exec()
 
 def ready():
     qmlRegisterSingletonType(_qml_qrc_url("Common.qml"), "gui", 1, 0, "COMMON")
@@ -733,7 +769,7 @@ def main():
     except Exception:
         pass
     
-    launch(url)
+    sys.exit(launch(url))
 
 if __name__ == "__main__":
     main()
