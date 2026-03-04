@@ -45,6 +45,14 @@ def exceptHook(exc_type, exc_value, exc_tb):
         f.write(f"LAUNCH {datetime.datetime.now().isoformat()}\\n{tb}\\n")
     print(tb)
     print(f"TRACEBACK SAVED: {CRASH_LOG_PATH}")
+    try:
+        full_log = CRASH_LOG_PATH.read_text(encoding="utf-8")
+    except Exception as log_error:
+        print(f"FAILED TO READ CRASH LOG: {log_error}")
+    else:
+        print("----- BEGIN crash.log -----")
+        print(full_log, end="" if full_log.endswith("\n") else "\n")
+        print("----- END crash.log -----")
 
     if IS_WIN and LAUNCHER.exists() and not ERRORED:
         ERRORED = True
@@ -96,12 +104,20 @@ def _ensure_runtime_requirements() -> None:
         sys.executable,
         str(REPO_ROOT / "scripts" / "bootstrap.py"),
     ]
-    bootstrap_result = subprocess.run(bootstrap_command, check=False)
+    bootstrap_result = subprocess.run(
+        bootstrap_command,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     if bootstrap_result.returncode != 0:
         requirements = ", ".join(missing_gui_requirements)
+        bootstrap_stdout = (bootstrap_result.stdout or "(no stdout)").strip()
+        bootstrap_stderr = (bootstrap_result.stderr or "(no stderr)").strip()
         raise RuntimeError(
             "Failed to bootstrap GUI dependencies. "
-            f"Missing requirements before bootstrap: {requirements}."
+            f"Missing requirements before bootstrap: {requirements}. "
+            f"bootstrap stdout: {bootstrap_stdout} | bootstrap stderr: {bootstrap_stderr}"
         )
 
     missing_gui_requirements = missing_python_requirements(gui_requirements, enforce_version=True)
@@ -183,7 +199,10 @@ def _compile_qml_resources() -> None:
         check=False,
     )
     if status.returncode != 0:
-        details = (status.stderr or status.stdout or "(no output)").strip()
+        details = (
+            f"stdout: {(status.stdout or '(no stdout)').strip()} | "
+            f"stderr: {(status.stderr or '(no stderr)').strip()}"
+        )
         raise RuntimeError(f"pyside6-rcc failed to compile QML resources: {details}")
 
     tabs_copy = QML_ROOT / "tabs"
@@ -218,7 +237,10 @@ def _sync_inference_requirements() -> None:
         check=False,
     )
     if status.returncode != 0:
-        details = (status.stderr or status.stdout or "(no output)").strip()
+        details = (
+            f"stdout: {(status.stdout or '(no stdout)').strip()} | "
+            f"stderr: {(status.stderr or '(no stderr)').strip()}"
+        )
         raise RuntimeError(f"Failed to sync inference requirements: {details}")
 
 
