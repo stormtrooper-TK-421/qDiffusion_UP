@@ -14,6 +14,7 @@ import hashlib
 import argparse
 import importlib
 import shutil
+from qml_compat import singleton_instance_provider
 from pathlib import Path
 
 os.environ["QT_DEBUG_PLUGINS"] = "1"
@@ -617,12 +618,12 @@ def launch(url):
     engine.addImageProvider("async", backend.thumbnails.async_provider)
     engine.addImageProvider("big", backend.thumbnails.big_provider)
 
-    qmlRegisterSingletonType(gui.GUI, "gui", 1, 0, "GUI", lambda _qml, _js, obj=backend: obj)
+    qmlRegisterSingletonType(gui.GUI, "gui", 1, 0, "GUI", singleton_instance_provider(backend))
     
     translator = Translator(app)
     coordinator = Coordinator(app, engine)
     app.coordinator = coordinator
-    qmlRegisterSingletonType(Coordinator, "gui", 1, 0, "COORDINATOR", lambda _qml, _js, obj=coordinator: obj)
+    qmlRegisterSingletonType(Coordinator, "gui", 1, 0, "COORDINATOR", singleton_instance_provider(coordinator))
 
     engine.rootContext().setContextProperty("STARTUP_QML_DIR_URL", _qml_qrc_url("").toString())
     splash_url = _qml_qrc_url("Splash.qml")

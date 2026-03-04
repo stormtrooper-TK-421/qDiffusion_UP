@@ -6,6 +6,7 @@ import json
 import difflib
 import numpy as np
 
+from qml_compat import singleton_instance_provider
 from parameters import VariantMap
 from misc import encodeImage
 
@@ -153,7 +154,7 @@ class Trainer(QObject):
 
         self.reset()
 
-        qmlRegisterSingletonType(Trainer, "gui", 1, 0, "TRAINER", lambda _qml, _js, obj=self: obj)
+        qmlRegisterSingletonType(Trainer, "gui", 1, 0, "TRAINER", singleton_instance_provider(self))
         self.gui.optionsUpdated.connect(self.optionsUpdated)
         self.gui.response.connect(self.onResponse)
 

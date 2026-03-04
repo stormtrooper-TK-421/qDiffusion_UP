@@ -7,6 +7,7 @@ from PySide6.QtNetwork import QNetworkRequest, QNetworkReply
 
 import parameters
 import re
+from qml_compat import singleton_instance_provider
 from misc import MimeData, encodeImage
 from canvas.shared import CanvasWrapper
 import sql
@@ -75,7 +76,7 @@ class Basic(QObject):
         self._manager.artifact.connect(self.onArtifact)
         self._manager.finished.connect(self.onFinished)
 
-        qmlRegisterSingletonType(Basic, "gui", 1, 0, "BASIC", lambda _qml, _js, obj=self: obj)
+        qmlRegisterSingletonType(Basic, "gui", 1, 0, "BASIC", singleton_instance_provider(self))
         qmlRegisterUncreatableType(Pose, "gui", 1, 0, "Pose", "Not a QML type")
         qmlRegisterUncreatableType(PoseNode, "gui", 1, 0, "PoseNode", "Not a QML type")
         qmlRegisterUncreatableType(PoseEdge, "gui", 1, 0, "PoseEdge", "Not a QML type")
