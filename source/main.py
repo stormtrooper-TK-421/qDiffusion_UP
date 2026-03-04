@@ -602,6 +602,15 @@ def launch(url):
     app.endpoint = url
     
     engine = QQmlApplicationEngine()
+    qml_warnings: list = []
+
+    def _capture_qml_warnings(warnings_list):
+        qml_warnings.extend(warnings_list)
+
+    # PySide6 exposes QQmlEngine.warnings as a signal (not a callable method).
+    # Capture warnings via the signal so failures can still be logged when
+    # splash QML fails to instantiate root objects.
+    engine.warnings.connect(_capture_qml_warnings)
     engine.quit.connect(app.quit)
 
     sql.registerTypes()
@@ -631,7 +640,7 @@ def launch(url):
     engine.load(splash_url)
 
     if not engine.rootObjects():
-        warning_messages = "\n".join(str(warning) for warning in engine.warnings())
+        warning_messages = "\n".join(str(warning) for warning in qml_warnings)
         timestamp = datetime.datetime.now().isoformat()
         crash_message = (
             f"GUI {timestamp}\n"
