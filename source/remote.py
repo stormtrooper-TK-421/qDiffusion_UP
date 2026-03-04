@@ -2,7 +2,7 @@ import queue
 import multiprocessing
 import websockets.sync.client
 import websockets.exceptions
-import bson
+from bson import BSON
 import os
 import traceback
 import datetime
@@ -45,7 +45,7 @@ def get_scheme(password):
     return AESGCM(kdf.derive(password))
 
 def encrypt(scheme, obj):
-    data = bson.dumps(obj)
+    data = BSON.encode(obj)
     if scheme:
         nonce = secrets.token_bytes(16)
         data = nonce + scheme.encrypt(nonce, data, b"")
@@ -54,7 +54,7 @@ def encrypt(scheme, obj):
 def decrypt(scheme, data):
     if scheme:
         data = scheme.decrypt(data[:16], data[16:], b"")
-    obj = bson.loads(data)
+    obj = BSON(data).decode()
     return obj
 
 class RemoteInferenceUpload(QThread):

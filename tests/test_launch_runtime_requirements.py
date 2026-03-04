@@ -10,9 +10,9 @@ def test_launch_uses_gui_requirements_file_path() -> None:
     assert launch.GUI_REQUIREMENTS_PATH == launch.REPO_ROOT / "requirements" / "gui.txt"
 
 
-def test_gui_requirements_pin_bson_dependency() -> None:
+def test_gui_requirements_pin_pymongo_dependency() -> None:
     requirements = (Path(__file__).resolve().parents[1] / "requirements" / "gui.txt").read_text(encoding="utf-8")
-    assert any(line.strip().startswith("bson") for line in requirements.splitlines())
+    assert any(line.strip().startswith("pymongo") for line in requirements.splitlines())
 
 
 def test_gui_requirements_do_not_include_torch_or_diffusers_stack() -> None:
@@ -30,15 +30,15 @@ def test_launch_runtime_requirement_check_is_gui_only() -> None:
 
 def test_missing_gui_requirements_trigger_bootstrap(monkeypatch) -> None:
     monkeypatch.setattr(launch, "_is_inside_expected_venv", lambda: True)
-    monkeypatch.setattr(launch, "_load_requirements", lambda path: ["bson==0.5.10"])
+    monkeypatch.setattr(launch, "_load_requirements", lambda path: ["pymongo==4.15.2"])
 
     state = {"bootstrapped": False}
 
     def fake_missing_python_requirements(requirements, enforce_version):
-        assert requirements == ["bson==0.5.10"]
+        assert requirements == ["pymongo==4.15.2"]
         assert enforce_version is True
         if not state["bootstrapped"]:
-            return ["bson==0.5.10"]
+            return ["pymongo==4.15.2"]
         return []
 
     def fake_run(command, check=False, **kwargs):
@@ -58,12 +58,12 @@ def test_missing_gui_requirements_trigger_bootstrap(monkeypatch) -> None:
 
 def test_failed_bootstrap_raises_runtime_error(monkeypatch) -> None:
     monkeypatch.setattr(launch, "_is_inside_expected_venv", lambda: True)
-    monkeypatch.setattr(launch, "_load_requirements", lambda path: ["bson==0.5.10"])
+    monkeypatch.setattr(launch, "_load_requirements", lambda path: ["pymongo==4.15.2"])
 
     monkeypatch.setattr(
         launch,
         "missing_python_requirements",
-        lambda requirements, enforce_version: ["bson==0.5.10"],
+        lambda requirements, enforce_version: ["pymongo==4.15.2"],
     )
     monkeypatch.setattr(
         launch.subprocess,
@@ -76,7 +76,7 @@ def test_failed_bootstrap_raises_runtime_error(monkeypatch) -> None:
     except RuntimeError as exc:
         message = str(exc)
         assert "Failed to bootstrap GUI dependencies." in message
-        assert "Missing requirements before bootstrap: bson==0.5.10." in message
+        assert "Missing requirements before bootstrap: pymongo==4.15.2." in message
         assert "bootstrap stdout:" in message
         assert "bootstrap stderr:" in message
     else:
@@ -85,7 +85,7 @@ def test_failed_bootstrap_raises_runtime_error(monkeypatch) -> None:
 
 def test_missing_gui_requirements_after_bootstrap_raise_runtime_error(monkeypatch) -> None:
     monkeypatch.setattr(launch, "_is_inside_expected_venv", lambda: True)
-    monkeypatch.setattr(launch, "_load_requirements", lambda path: ["bson==0.5.10", "PySide6==6.10.2"])
+    monkeypatch.setattr(launch, "_load_requirements", lambda path: ["pymongo==4.15.2", "PySide6==6.10.2"])
     monkeypatch.setattr(
         launch,
         "missing_python_requirements",

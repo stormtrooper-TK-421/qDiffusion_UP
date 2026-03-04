@@ -2,7 +2,7 @@ import os
 import random
 import datetime
 import json
-import bson
+from bson import BSON
 import difflib
 import time
 import platform
@@ -691,7 +691,7 @@ class GUI(QObject):
                     if url.isLocalFile() and url.endswith(".bin"):
                         with open(url.toLocalFile(), mode="rb") as f:
                             data = f.read()
-                            request = bson.loads(data)
+                            request = BSON(data).decode()
                             self.makeRequest(request)
                             break
         except Exception as e:
