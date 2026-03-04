@@ -8,7 +8,7 @@ from pathlib import Path
 from env_common import REPO_ROOT, run_with_venv
 
 FETCH_SCRIPT = Path("scripts/fetch_sd_infer.py")
-INFER_SERVER = Path(".third_party/sd-inference-server/server.py")
+INFER_SERVER = Path("source/sd-inference-server/server.py")
 
 
 def ensure_infer_server_present() -> None:

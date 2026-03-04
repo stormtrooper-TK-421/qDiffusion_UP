@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch/update sd-inference-server into repo-local .third_party."""
+"""Fetch/update sd-inference-server into the repository source tree."""
 
 from __future__ import annotations
 
@@ -13,8 +13,9 @@ from pathlib import Path
 
 DEFAULT_URL = "https://github.com/stormtrooper-TK-421/sd-inference-server"
 ALLOWED_URLS = {DEFAULT_URL}
-DEFAULT_DEST = ".third_party/sd-inference-server"
-STATE_FILE = ".third_party/sd_infer_state.json"
+DEFAULT_DEST = "source/sd-inference-server"
+STATE_FILE = "source/sd_infer_state.json"
+LEGACY_DEST = ".third_party/sd-inference-server"
 
 
 def fail(message: str) -> None:
@@ -40,10 +41,12 @@ def run(cmd: list[str], *, cwd: Path | None = None) -> str:
 
 
 def validate_dest(repo_root: Path, raw_dest: str) -> Path:
-    dest = (repo_root / raw_dest).resolve()
     repo_root = repo_root.resolve()
-    if Path(repo_root, *dest.relative_to(repo_root).parts) != dest:
-        fail("--dest must remain under the repository root")
+    dest = (repo_root / raw_dest).resolve()
+    try:
+        dest.relative_to(repo_root)
+    except ValueError as exc:
+        raise ValueError("destination outside repository") from exc
     return dest
 
 
@@ -72,6 +75,30 @@ def verify_invariants(dest: Path) -> None:
         fail(f"Missing required file: {dest / 'requirements.txt'}")
 
 
+def ensure_origin(dest: Path, expected_url: str) -> None:
+    origin = run(["git", "-C", str(dest), "remote", "get-url", "origin"])
+    if origin != expected_url:
+        fail(f"Origin URL mismatch at {dest}: expected {expected_url}, got {origin}")
+
+
+def sync_to_remote_default(dest: Path) -> None:
+    run(["git", "-C", str(dest), "fetch", "origin"])
+    default_ref = run(
+        [
+            "git",
+            "-C",
+            str(dest),
+            "symbolic-ref",
+            "-q",
+            "refs/remotes/origin/HEAD",
+        ]
+    )
+    if not default_ref:
+        fail("Unable to determine remote default branch (origin/HEAD)")
+    run(["git", "-C", str(dest), "reset", "--hard", default_ref])
+    run(["git", "-C", str(dest), "clean", "-xdf"])
+
+
 def write_state(repo_root: Path, dest: Path, url: str) -> None:
     commit = run(["git", "-C", str(dest), "rev-parse", "HEAD"])
     state_path = repo_root / STATE_FILE
@@ -98,6 +125,25 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def migrate_legacy_checkout(repo_root: Path, dest: Path, url: str) -> None:
+    legacy_dest = (repo_root / LEGACY_DEST).resolve()
+    if dest.exists() or not legacy_dest.exists():
+        return
+
+    print(
+        "[fetch_sd_infer] Migration: detected legacy .third_party checkout; "
+        "moving it to source/sd-inference-server."
+    )
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(legacy_dest), str(dest))
+
+    if not is_git_repo(dest):
+        shutil.rmtree(dest, ignore_errors=True)
+        fail("Migrated legacy checkout is not a valid git repository; rerun with --fresh to reclone cleanly.")
+
+    ensure_origin(dest, url)
+
+
 def main() -> None:
     args = parse_args()
     git_exists()
@@ -112,6 +158,8 @@ def main() -> None:
     except ValueError:
         fail("--dest must remain under the repository root")
 
+    migrate_legacy_checkout(repo_root, dest, args.url)
+
     if args.fresh and dest.exists():
         shutil.rmtree(dest)
 
@@ -121,24 +169,9 @@ def main() -> None:
     else:
         if not is_git_repo(dest):
             fail(f"Destination exists but is not a git repository: {dest}")
-        origin = run(["git", "-C", str(dest), "remote", "get-url", "origin"])
-        if origin != args.url:
-            fail(f"Origin URL mismatch at {dest}: expected {args.url}, got {origin}")
+        ensure_origin(dest, args.url)
 
-        run(["git", "-C", str(dest), "fetch", "origin"])
-        default_ref = run([
-            "git",
-            "-C",
-            str(dest),
-            "symbolic-ref",
-            "-q",
-            "refs/remotes/origin/HEAD",
-        ])
-        if not default_ref:
-            fail("Unable to determine remote default branch (origin/HEAD)")
-        run(["git", "-C", str(dest), "reset", "--hard", default_ref])
-        run(["git", "-C", str(dest), "clean", "-xdf"])
-
+    sync_to_remote_default(dest)
     verify_invariants(dest)
     write_state(repo_root, dest, args.url)
     print(f"sd-inference-server ready at {dest}")

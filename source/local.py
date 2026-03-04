@@ -15,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 VENV_DIR = REPO_ROOT / ".venv"
 TMP_ROOT = REPO_ROOT / ".tmp"
 FETCH_SCRIPT = REPO_ROOT / "scripts" / "fetch_sd_infer.py"
-INFER_SERVER = REPO_ROOT / ".third_party" / "sd-inference-server" / "server.py"
+INFER_SERVER = REPO_ROOT / "source" / "sd-inference-server" / "server.py"
 LOCAL_HOST = "127.0.0.1"
 LOCAL_PORT = 28888
 

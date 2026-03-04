@@ -22,7 +22,7 @@ ML_CACHE_ROOT = TMP_ROOT / "ml_cache"
 GUI_REQUIREMENTS = REPO_ROOT / "requirements" / "gui.txt"
 INFERENCE_BASE_REQUIREMENTS = REPO_ROOT / "requirements" / "inference-base.txt"
 FETCH_INFER_SCRIPT = REPO_ROOT / "scripts" / "fetch_sd_infer.py"
-INFER_REQUIREMENTS = REPO_ROOT / ".third_party" / "sd-inference-server" / "requirements.txt"
+INFER_REQUIREMENTS = REPO_ROOT / "source" / "sd-inference-server" / "requirements.txt"
 PYPI_INDEX_URL = "https://pypi.org/simple"
 
 
@@ -62,7 +62,7 @@ def _require_infer_requirements() -> None:
     if not INFER_REQUIREMENTS.is_file():
         raise SystemExit(
             "Missing inference requirements: expected cloned repository at "
-            ".third_party/sd-inference-server"
+            "source/sd-inference-server"
         )
 
 
