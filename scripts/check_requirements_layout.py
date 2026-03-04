@@ -12,7 +12,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CANONICAL_GUI_REQUIREMENTS = REPO_ROOT / "requirements" / "gui.txt"
-EXCLUDED_DIRS = {".git", ".venv", ".tmp", ".third_party", "__pycache__"}
+EXCLUDED_DIRS = {".git", ".venv", ".tmp", "__pycache__"}
 
 
 def _is_excluded(path: Path) -> bool:

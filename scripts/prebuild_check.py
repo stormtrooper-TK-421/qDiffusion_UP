@@ -40,7 +40,7 @@ def _iter_repo_files(*, suffixes: tuple[str, ...], excluded_dirs: set[str]) -> l
 
 
 def _assert_no_pyqt5_imports() -> None:
-    excluded_dirs = {".git", ".venv", ".tmp", ".third_party", "__pycache__"}
+    excluded_dirs = {".git", ".venv", ".tmp", "__pycache__"}
     violations: list[str] = []
 
     for path in _iter_repo_files(suffixes=(".py",), excluded_dirs=excluded_dirs):
@@ -71,15 +71,15 @@ def _assert_no_pyqt5_imports() -> None:
 
 
 def _assert_sd_inference_server_present() -> None:
-    server_root = REPO_ROOT / ".third_party" / "sd-inference-server"
+    server_root = REPO_ROOT / "source" / "sd-inference-server"
     git_dir = server_root / ".git"
     server_entrypoint = server_root / "server.py"
     if not server_root.is_dir() or not server_entrypoint.is_file():
         raise SystemExit(
-            "Missing .third_party/sd-inference-server. Run `python scripts/fetch_sd_infer.py` before building."
+            "Missing source/sd-inference-server. Run `python scripts/fetch_sd_infer.py` before building."
         )
     if not git_dir.exists():
-        raise SystemExit(".third_party/sd-inference-server exists but is not a git checkout/submodule (.git missing).")
+        raise SystemExit("source/sd-inference-server exists but is not a git checkout (.git missing).")
     print("[prebuild] sd-inference-server checkout present.")
 
 
