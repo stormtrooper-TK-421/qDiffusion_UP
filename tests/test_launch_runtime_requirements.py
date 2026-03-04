@@ -15,6 +15,26 @@ def test_gui_requirements_pin_bson_dependency() -> None:
     assert any(line.strip().startswith("bson") for line in requirements.splitlines())
 
 
+def test_gui_requirements_do_not_include_torch_or_diffusers_stack() -> None:
+    requirements = (Path(__file__).resolve().parents[1] / "requirements" / "gui.txt").read_text(encoding="utf-8")
+    packages = {line.split("#", 1)[0].strip().lower() for line in requirements.splitlines() if line.strip()}
+    assert all(not entry.startswith("torch") for entry in packages)
+    assert all(not entry.startswith("diffusers") for entry in packages)
+
+
+def test_inference_base_requirements_include_diffusers_stack() -> None:
+    requirements = (Path(__file__).resolve().parents[1] / "requirements" / "inference-base.txt").read_text(encoding="utf-8")
+    packages = {line.split("#", 1)[0].strip().lower() for line in requirements.splitlines() if line.strip()}
+    assert any(entry.startswith("diffusers") for entry in packages)
+
+
+def test_launch_runtime_requirement_check_is_gui_only() -> None:
+    launch_source = (Path(__file__).resolve().parents[1] / "source" / "launch.py").read_text(encoding="utf-8")
+    assert "GUI_REQUIREMENTS_PATH" in launch_source
+    assert "gui.txt" in launch_source
+    assert "inference-base" not in launch_source
+
+
 def test_missing_gui_requirements_trigger_bootstrap(monkeypatch) -> None:
     monkeypatch.setattr(launch, "_is_inside_expected_venv", lambda: True)
     monkeypatch.setattr(launch, "_load_requirements", lambda path: ["bson==0.5.10"])

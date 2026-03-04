@@ -15,6 +15,7 @@ VENV_DIR = REPO_ROOT / ".venv"
 TMP_ROOT = REPO_ROOT / ".tmp"
 ML_CACHE_ROOT = TMP_ROOT / "ml_cache"
 GUI_REQUIREMENTS = REPO_ROOT / "requirements" / "gui.txt"
+INFERENCE_BASE_REQUIREMENTS = REPO_ROOT / "requirements" / "inference-base.txt"
 FETCH_INFER_SCRIPT = REPO_ROOT / "scripts" / "fetch_sd_infer.py"
 INFER_REQUIREMENTS = REPO_ROOT / ".third_party" / "sd-inference-server" / "requirements.txt"
 PYPI_INDEX_URL = "https://pypi.org/simple"
@@ -136,6 +137,8 @@ def install_requirements(mode: str, env: dict[str, str]) -> None:
         run([*pip_base_cmd, "-r", str(GUI_REQUIREMENTS)], env=env)
 
     if mode in ("infer", "all"):
+        _require_file(INFERENCE_BASE_REQUIREMENTS, "inference base requirements")
+        run([*pip_base_cmd, "-r", str(INFERENCE_BASE_REQUIREMENTS)], env=env)
         ensure_infer_server_checkout(env)
         _require_infer_requirements()
         run([*pip_base_cmd, "-r", str(INFER_REQUIREMENTS)], env=env)
