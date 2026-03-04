@@ -593,7 +593,7 @@ def loadTabs(gui_backend, parent):
 def start(engine, app):
     backend = getattr(app, "backend", None)
     if backend:
-        loadTabs(backend, backend)
+        loadTabs(backend, app)
 
 def exceptHook(exc_type, exc_value, exc_tb):
     global ERRORED
