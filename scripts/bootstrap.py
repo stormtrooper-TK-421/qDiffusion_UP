@@ -134,11 +134,39 @@ def install_requirements(env: dict[str, str]) -> None:
     run([*pip_base_cmd, "-r", str(GUI_REQUIREMENTS)], env=env)
 
 
+def ensure_pip_tooling(env: dict[str, str]) -> None:
+    python_bin = VENV_DIR / ("Scripts" if os.name == "nt" else "bin") / "python"
+
+    try:
+        run([str(python_bin), "-m", "pip", "--version"], env=env)
+    except RuntimeError:
+        run([str(python_bin), "-m", "ensurepip", "--upgrade"], env=env)
+        run([str(python_bin), "-m", "pip", "--version"], env=env)
+
+    run(
+        [
+            str(python_bin),
+            "-m",
+            "pip",
+            "install",
+            "-U",
+            "pip",
+            "setuptools",
+            "wheel",
+            "--no-cache-dir",
+            "--index-url",
+            PYPI_INDEX_URL,
+        ],
+        env=env,
+    )
+
+
 def main() -> None:
     args = parse_args()
     ensure_supported_python()
     env = build_hermetic_env()
     create_or_recreate_venv(args.recreate, env)
+    ensure_pip_tooling(env)
     install_requirements(env)
     print("[bootstrap] Complete.")
 
