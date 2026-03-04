@@ -117,6 +117,8 @@ class GUI(QObject):
         self._config.updated.connect(self.onConfigUpdated)
         self._remoteStatus = RemoteStatusMode.INACTIVE
         self._remoteLatency = 0
+        self._startup_ready_for_inference = False
+        self._pending_backend_restart = False
 
         self._modelFolders = []
 
@@ -135,8 +137,6 @@ class GUI(QObject):
         self.backend = backend.Backend(self)
         self.backend.response.connect(self.onResponse)
         self.backend.updated.connect(self.backendUpdated)
-        if not parent.endpoint:
-            self.backend.setEndpoint(self._config._values.get("endpoint"), self._config._values.get("password"))
 
         self.watchModelDirectory()
 
@@ -635,8 +635,23 @@ class GUI(QObject):
 
         self.backend.stop()
         self.backend.wait()
-        self.backend.setEndpoint(endpoint, password)
+        if self._startup_ready_for_inference:
+            self.backend.setEndpoint(endpoint, password)
+            self._pending_backend_restart = False
+        else:
+            self._pending_backend_restart = True
         self.reset.emit(-1)
+
+    @pyqtSlot()
+    def startBackendAfterStartup(self):
+        if self._startup_ready_for_inference:
+            return
+
+        self._startup_ready_for_inference = True
+        endpoint = self._config._values.get("endpoint")
+        password = self._config._values.get("password")
+        self.backend.setEndpoint(endpoint, password)
+        self._pending_backend_restart = False
 
     @pyqtSlot(str)
     def onSignal(self, message):
@@ -655,7 +670,10 @@ class GUI(QObject):
         self._config._values.set("endpoint", endpoint)
         self._config._values.set("password", password)
 
-        self.restartBackend()
+        if self._startup_ready_for_inference:
+            self.restartBackend()
+        else:
+            self._pending_backend_restart = True
 
     @pyqtSlot()
     def backendUpdated(self):

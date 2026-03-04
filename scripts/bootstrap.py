@@ -284,39 +284,40 @@ def probe_pinned_compatibility(env: dict[str, str]) -> None:
     non_qt_requirements, _qt_requirements = _split_gui_requirements()
     non_qt_requirements_file = _write_non_qt_requirements_temp_file(non_qt_requirements)
     try:
-        command = [
-            str(python_bin),
-            "-m",
-            "pip",
-            "download",
-            "--no-deps",
-            "--only-binary=:all:",
-            "--no-cache-dir",
-            "--index-url",
-            PYPI_INDEX_URL,
-            "-r",
-            str(non_qt_requirements_file),
-            "-d",
-            os.devnull,
-        ]
-        result = subprocess.run(
-            command,
-            check=False,
-            capture_output=True,
-            text=True,
-            cwd=str(REPO_ROOT),
-            env=env,
-            **_windows_hidden_subprocess_kwargs(),
-        )
-        if result.returncode != 0:
-            snippet = _tail_error_snippet(result.stdout or "", result.stderr or "")
-            command_text = " ".join(command)
-            raise CompatibilityProbeError(
-                "COMPATIBILITY PROBE FAILED: pinned startup requirements are not compatible with "
-                f"interpreter={_interpreter_version()} platform={_platform_tag()} :: "
-                f"requirements_file={GUI_REQUIREMENTS} :: pip_command={command_text} :: "
-                f"return_code={result.returncode} :: pip_snippet={snippet}"
+        with tempfile.TemporaryDirectory(prefix="bootstrap-probe-") as download_dir:
+            command = [
+                str(python_bin),
+                "-m",
+                "pip",
+                "download",
+                "--no-deps",
+                "--only-binary=:all:",
+                "--no-cache-dir",
+                "--index-url",
+                PYPI_INDEX_URL,
+                "-r",
+                str(non_qt_requirements_file),
+                "-d",
+                download_dir,
+            ]
+            result = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=str(REPO_ROOT),
+                env=env,
+                **_windows_hidden_subprocess_kwargs(),
             )
+            if result.returncode != 0:
+                snippet = _tail_error_snippet(result.stdout or "", result.stderr or "")
+                command_text = " ".join(command)
+                raise CompatibilityProbeError(
+                    "COMPATIBILITY PROBE FAILED: pinned startup requirements are not compatible with "
+                    f"interpreter={_interpreter_version()} platform={_platform_tag()} :: "
+                    f"requirements_file={GUI_REQUIREMENTS} :: pip_command={command_text} :: "
+                    f"return_code={result.returncode} :: pip_snippet={snippet}"
+                )
     finally:
         non_qt_requirements_file.unlink(missing_ok=True)
 

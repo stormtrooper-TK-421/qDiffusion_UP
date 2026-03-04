@@ -11,7 +11,7 @@ Built from the ground up alongside [sd-inference-server](https://github.com/stor
 	- First time users will need to wait for the managed Python runtime (minimum `3.14.3`) and PySide6 to be downloaded.
 	- AMD Ubuntu users need to follow: [Install ROCm](https://github.com/stormtrooper-TK-421/qDiffusion_UP/wiki/Install#ubuntu-22).
 3. Select a mode. `Remote`, `Nvidia` and `AMD` are available.
-	- `Remote` needs `~500MB` of space, `NVIDIA`/`AMD` need `~5-10GB`.
+	- Currently all modes install the same dependency set; total size varies by platform.
 	- Choose `Remote` if you only want to generate using cloud/server instances.
 	- For local generation choose `NVIDIA` or `AMD`, they also have the capabilities of `Remote`.
 	- `AMD` on Windows uses DirectML so is much slower than on Linux.

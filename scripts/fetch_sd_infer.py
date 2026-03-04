@@ -5,12 +5,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+import pygit2
 
 DEFAULT_URL = "https://github.com/stormtrooper-TK-421/sd-inference-server"
 ALLOWED_URLS = {DEFAULT_URL}
@@ -19,44 +19,9 @@ STATE_FILE = "source/sd_infer_state.json"
 LEGACY_DEST = ".third_party/sd-inference-server"
 
 
-def _windows_hidden_subprocess_kwargs() -> dict[str, object]:
-    if os.name != "nt":
-        return {}
-    kwargs: dict[str, object] = {}
-    startupinfo_cls = getattr(subprocess, "STARTUPINFO", None)
-    startf_use_show_window = getattr(subprocess, "STARTF_USESHOWWINDOW", 0)
-    if startupinfo_cls and startf_use_show_window:
-        startupinfo = startupinfo_cls()
-        startupinfo.dwFlags |= startf_use_show_window
-        startupinfo.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
-        kwargs["startupinfo"] = startupinfo
-    creation_flag = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    if creation_flag:
-        kwargs["creationflags"] = creation_flag
-    return kwargs
-
-
 def fail(message: str) -> None:
     print(f"ERROR: {message}", file=sys.stderr)
     raise SystemExit(1)
-
-
-def run(cmd: list[str], *, cwd: Path | None = None) -> str:
-    result = subprocess.run(
-        cmd,
-        cwd=str(cwd) if cwd else None,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-        **_windows_hidden_subprocess_kwargs(),
-    )
-    if result.returncode != 0:
-        stderr = result.stderr.strip()
-        stdout = result.stdout.strip()
-        details = stderr or stdout or "(no output)"
-        fail(f"Command failed ({' '.join(cmd)}): {details}")
-    return result.stdout.strip()
 
 
 def validate_dest(repo_root: Path, raw_dest: str) -> Path:
@@ -69,21 +34,12 @@ def validate_dest(repo_root: Path, raw_dest: str) -> Path:
     return dest
 
 
-def git_exists() -> None:
-    if shutil.which("git") is None:
-        fail("git is required but was not found in PATH")
-
-
 def is_git_repo(dest: Path) -> bool:
-    result = subprocess.run(
-        ["git", "-C", str(dest), "rev-parse", "--is-inside-work-tree"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-        **_windows_hidden_subprocess_kwargs(),
-    )
-    return result.returncode == 0 and result.stdout.strip() == "true"
+    try:
+        pygit2.Repository(str(dest))
+        return True
+    except (KeyError, pygit2.GitError):
+        return False
 
 
 def verify_invariants(dest: Path) -> None:
@@ -95,32 +51,71 @@ def verify_invariants(dest: Path) -> None:
         fail(f"Missing required file: {dest / 'requirements.txt'}")
 
 
-def ensure_origin(dest: Path, expected_url: str) -> None:
-    origin = run(["git", "-C", str(dest), "remote", "get-url", "origin"])
-    if origin != expected_url:
-        fail(f"Origin URL mismatch at {dest}: expected {expected_url}, got {origin}")
+def _normalize_url(url: str) -> str:
+    return url.rstrip("/").removesuffix(".git")
 
 
-def sync_to_remote_default(dest: Path) -> None:
-    run(["git", "-C", str(dest), "fetch", "origin"])
-    default_ref = run(
-        [
-            "git",
-            "-C",
-            str(dest),
-            "symbolic-ref",
-            "-q",
-            "refs/remotes/origin/HEAD",
-        ]
-    )
-    if not default_ref:
-        fail("Unable to determine remote default branch (origin/HEAD)")
-    run(["git", "-C", str(dest), "reset", "--hard", default_ref])
-    run(["git", "-C", str(dest), "clean", "-xdf"])
+def ensure_origin(repo: pygit2.Repository, expected_url: str, dest: Path) -> pygit2.Remote:
+    remote = repo.remotes.get("origin")
+    if remote is None:
+        fail(f"Missing origin remote in {dest}")
+    if _normalize_url(remote.url) != _normalize_url(expected_url):
+        fail(f"Origin URL mismatch at {dest}: expected {expected_url}, got {remote.url}")
+    return remote
+
+
+def _resolve_remote_default_ref(repo: pygit2.Repository) -> pygit2.Reference:
+    for ref_name in (
+        "refs/remotes/origin/HEAD",
+        "refs/remotes/origin/main",
+        "refs/remotes/origin/master",
+    ):
+        ref = repo.references.get(ref_name)
+        if ref is None:
+            continue
+        if ref.type == pygit2.enums.ReferenceType.SYMBOLIC:
+            try:
+                ref = ref.resolve()
+            except pygit2.GitError:
+                continue
+        return ref
+    fail("Unable to determine remote default branch (origin/HEAD, origin/main, origin/master missing)")
+
+
+def _clean_untracked(repo: pygit2.Repository, dest: Path) -> None:
+    status = repo.status(untracked_files="all")
+    for rel_path, flags in status.items():
+        if flags & (pygit2.GIT_STATUS_WT_NEW | pygit2.GIT_STATUS_IGNORED):
+            target = (dest / rel_path).resolve()
+            try:
+                target.relative_to(dest)
+            except ValueError:
+                continue
+            if not target.exists():
+                continue
+            if target.is_dir():
+                shutil.rmtree(target, ignore_errors=True)
+            else:
+                target.unlink(missing_ok=True)
+
+
+def sync_to_remote_default(repo: pygit2.Repository, dest: Path, expected_url: str) -> None:
+    remote = ensure_origin(repo, expected_url, dest)
+    callbacks = pygit2.RemoteCallbacks()
+    remote.fetch(callbacks=callbacks)
+
+    default_ref = _resolve_remote_default_ref(repo)
+    target_oid = default_ref.target
+    if target_oid is None:
+        fail(f"Resolved default ref {default_ref.name} has no target")
+
+    repo.reset(target_oid, pygit2.GIT_RESET_HARD)
+    _clean_untracked(repo, dest)
 
 
 def write_state(repo_root: Path, dest: Path, url: str) -> None:
-    commit = run(["git", "-C", str(dest), "rev-parse", "HEAD"])
+    repo = pygit2.Repository(str(dest))
+    commit = str(repo.head.target)
     state_path = repo_root / STATE_FILE
     state_path.parent.mkdir(parents=True, exist_ok=True)
     data = {
@@ -161,12 +156,20 @@ def migrate_legacy_checkout(repo_root: Path, dest: Path, url: str) -> None:
         shutil.rmtree(dest, ignore_errors=True)
         fail("Migrated legacy checkout is not a valid git repository; rerun with --fresh to reclone cleanly.")
 
-    ensure_origin(dest, url)
+    repo = pygit2.Repository(str(dest))
+    ensure_origin(repo, url, dest)
+
+
+def clone_repo(url: str, dest: Path) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        pygit2.clone_repository(url, str(dest))
+    except pygit2.GitError as exc:
+        fail(f"Clone failed: {exc}")
 
 
 def main() -> None:
     args = parse_args()
-    git_exists()
 
     repo_root = Path(__file__).resolve().parent.parent
 
@@ -184,14 +187,13 @@ def main() -> None:
         shutil.rmtree(dest)
 
     if not dest.exists():
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        run(["git", "clone", "--no-recurse-submodules", args.url, str(dest)])
+        clone_repo(args.url, dest)
     else:
         if not is_git_repo(dest):
             fail(f"Destination exists but is not a git repository: {dest}")
-        ensure_origin(dest, args.url)
 
-    sync_to_remote_default(dest)
+    repo = pygit2.Repository(str(dest))
+    sync_to_remote_default(repo, dest, args.url)
     verify_invariants(dest)
     write_state(repo_root, dest, args.url)
     print(f"sd-inference-server ready at {dest}")
