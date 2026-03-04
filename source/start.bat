@@ -27,5 +27,18 @@ if not exist "python\python.exe" (
     del /q "%CD%\python.zip"
 )
 
-start "" ".\python\python.exe" source\launch.py
+set "PYTHONNOUSERSITE=1"
+set "PYTHONDONTWRITEBYTECODE=1"
+set "QML_DISABLE_DISK_CACHE=1"
+set "QT_DISABLE_SHADER_DISK_CACHE=1"
+set "QSG_RHI_DISABLE_SHADER_DISK_CACHE=1"
+
+".\python\python.exe" scripts\bootstrap.py
+if errorlevel 1 (
+    echo Bootstrap failed.
+    exit /b 1
+)
+
+set "VIRTUAL_ENV=%CD%\.venv"
+start "" ".\.venv\Scripts\python.exe" source\launch.py
 exit /b 0
