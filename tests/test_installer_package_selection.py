@@ -27,12 +27,39 @@ def _get_coordinator_methods() -> tuple[str, str]:
     raise AssertionError("Coordinator class not found")
 
 
+def _get_coordinator_method(name: str) -> str:
+    source = MAIN_PY.read_text(encoding="utf-8")
+    module = ast.parse(source)
+
+    for node in module.body:
+        if isinstance(node, ast.ClassDef) and node.name == "Coordinator":
+            for child in node.body:
+                if isinstance(child, ast.FunctionDef) and child.name == name:
+                    method_source = ast.get_source_segment(source, child)
+                    assert method_source is not None
+                    return method_source
+
+    raise AssertionError(f"Coordinator.{name} not found")
+
+
 def _build_get_needed(is_win: bool):
     mode_backend_source, get_needed_source = _get_coordinator_methods()
     namespace = {"IS_WIN": is_win}
     exec(mode_backend_source, namespace)
     exec(get_needed_source, namespace)
     return namespace["_mode_backend_needed"], namespace["get_needed"]
+
+
+def _build_install_step_methods(is_win: bool):
+    pytorch_index_source = _get_coordinator_method("_pytorch_index_url")
+    build_steps_source = _get_coordinator_method("_build_install_steps")
+    namespace = {
+        "IS_WIN": is_win,
+        "INFERENCE_SERVER_REQUIREMENTS": "requirements/inference-server.txt",
+    }
+    exec(pytorch_index_source, namespace)
+    exec(build_steps_source, namespace)
+    return namespace["_pytorch_index_url"], namespace["_build_install_steps"]
 
 
 def _coordinator_stub(mode: str):
@@ -132,3 +159,63 @@ def test_mode_switching_changes_only_backend_delta() -> None:
     assert nvidia_needed[-2:] == amd_needed[-2:] == remote_needed
     assert nvidia_needed[:-2] == ["torch==2.1.0+cu118", "torchvision==0.16+cu118"]
     assert amd_needed[:-2] == ["torch==2.1.0+rocm5.6", "torchvision==0.16.0+rocm5.6"]
+
+
+def test_build_install_steps_uses_single_requirements_install() -> None:
+    pytorch_index, build_steps = _build_install_step_methods(is_win=False)
+
+    class Stub:
+        pass
+
+    coordinator = Stub()
+    coordinator._pytorch_index_url = lambda mode: pytorch_index(coordinator, mode)
+
+    steps = build_steps(
+        coordinator,
+        "nvidia",
+        ["torch==2.1.0+cu118", "torchvision==0.16+cu118"],
+        ["diffusers==0.27.2", "accelerate==0.27.2"],
+    )
+
+    assert len(steps) == 2
+    assert steps[0]["pip_args"] == [
+        "pip",
+        "install",
+        "-U",
+        "torch==2.1.0+cu118",
+        "torchvision==0.16+cu118",
+        "--index-url",
+        "https://download.pytorch.org/whl/cu118",
+        "--progress-bar",
+        "raw",
+    ]
+    assert steps[1]["pip_args"] == [
+        "pip",
+        "install",
+        "-U",
+        "-r",
+        "requirements/inference-server.txt",
+        "--progress-bar",
+        "raw",
+    ]
+
+
+def test_build_install_steps_adds_windows_binary_only_flag_for_inference_requirements() -> None:
+    pytorch_index, build_steps = _build_install_step_methods(is_win=True)
+
+    class Stub:
+        pass
+
+    coordinator = Stub()
+    coordinator._pytorch_index_url = lambda mode: pytorch_index(coordinator, mode)
+
+    steps = build_steps(
+        coordinator,
+        "amd",
+        ["torch-directml==0.2.0.dev230426"],
+        ["diffusers==0.27.2"],
+    )
+
+    assert len(steps) == 2
+    assert "--index-url" not in steps[0]["pip_args"]
+    assert "--only-binary=:all:" in steps[1]["pip_args"]

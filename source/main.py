@@ -105,24 +105,18 @@ class Installer(QThread):
     updated = pyqtSignal()
     installing = pyqtSignal(str)
     installed = pyqtSignal(str)
-    def __init__(self, parent, packages):
+    def __init__(self, parent, steps):
         super().__init__(parent)
-        self.packages = packages
+        self.steps = steps
         self.proc = None
         self.stopping = False
         self.downloading = False
         self.download_progress = 1.0
 
     def run(self):
-        for p in self.packages:
-            self.installing.emit(p)
-            args = ["pip", "install", "-U", p]
-            pkg = p.split("=",1)[0]
-            if pkg in {"torch", "torchvision"}:
-                args = ["pip", "install", "-U", p, "--index-url", "https://download.pytorch.org/whl/" + p.rsplit("+",1)[-1]]
-            args += ["--progress-bar", "off" if pkg == "pip" else "raw"]
-        
-            args = [sys.executable.replace("pythonw", "python"), "-m"] + args
+        for step in self.steps:
+            self.installing.emit(step["label"])
+            args = [sys.executable.replace("pythonw", "python"), "-m", *step["pip_args"]]
 
             self.proc = subprocess.Popen(
                 args,
@@ -153,9 +147,10 @@ class Installer(QThread):
             if self.stopping:
                 return
             if self.proc.returncode:
-                raise RuntimeError("Failed to install: ", p, "\n", output)
-            
-            self.installed.emit(p)
+                raise RuntimeError("Failed to install: ", step["label"], "\n", output)
+
+            for package in step["report_packages"]:
+                self.installed.emit(package)
         self.proc = None
 
     @pyqtSlot()
@@ -330,6 +325,45 @@ class Coordinator(QObject):
         backend_needed = self._mode_backend_needed(mode)
         return [*backend_needed, *self.optional_need]
 
+    def _pytorch_index_url(self, mode):
+        if mode == "nvidia":
+            return "https://download.pytorch.org/whl/cu118"
+        if mode == "amd" and not IS_WIN:
+            return "https://download.pytorch.org/whl/rocm5.6"
+        return None
+
+    def _build_install_steps(self, mode, backend_needed, inference_needed):
+        steps = []
+
+        if backend_needed:
+            backend_args = ["pip", "install", "-U", *backend_needed]
+            pytorch_index_url = self._pytorch_index_url(mode)
+            if pytorch_index_url:
+                backend_args += ["--index-url", pytorch_index_url]
+            backend_args += ["--progress-bar", "raw"]
+            steps.append(
+                {
+                    "label": "backend packages",
+                    "pip_args": backend_args,
+                    "report_packages": list(backend_needed),
+                }
+            )
+
+        if inference_needed:
+            inference_args = ["pip", "install", "-U", "-r", INFERENCE_SERVER_REQUIREMENTS]
+            if IS_WIN:
+                inference_args += ["--only-binary=:all:"]
+            inference_args += ["--progress-bar", "raw"]
+            steps.append(
+                {
+                    "label": "inference requirements",
+                    "pip_args": inference_args,
+                    "report_packages": list(inference_needed),
+                }
+            )
+
+        return steps
+
     @pyqtSlot()
     def load(self):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -357,11 +391,14 @@ class Coordinator(QObject):
         if self.installer:
             self.cancel.emit()
             return
-        packages = self.packages
+        mode = self._modes[self._mode]
+        backend_needed = self._mode_backend_needed(mode)
+        inference_needed = list(self.optional_need)
+        packages = [*backend_needed, *inference_needed]
         if not packages:
             self.done()
             return
-        self.installer = Installer(self, packages)
+        self.installer = Installer(self, self._build_install_steps(mode, backend_needed, inference_needed))
         self.installer.installed.connect(self.onInstalled)
         self.installer.installing.connect(self.onInstalling)
         self.installer.output.connect(self.onOutput)    
