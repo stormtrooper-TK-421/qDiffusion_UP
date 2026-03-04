@@ -9,7 +9,7 @@ diffusers==0.38.0
 einops==0.8.1
 k_diffusion==0.0.15
 lark==1.2.2
-numpy==2.3.0
+numpy==2.3.2
 Pillow==11.3.0
 safetensors==0.6.2
 tqdm==4.67.1
