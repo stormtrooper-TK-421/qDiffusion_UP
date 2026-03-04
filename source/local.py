@@ -152,14 +152,18 @@ class LocalInference(remote.RemoteInference):
 
     def _spawn_server(self, env: dict[str, str], python_bin: Path) -> None:
         self.onResponse({"type": "status", "data": {"message": "Starting local server"}})
+        model_directory = Path(self.gui.modelDirectory()).resolve()
+        model_directory.mkdir(parents=True, exist_ok=True)
         self.server_proc = subprocess.Popen(
             [
                 str(python_bin),
                 str(INFER_SERVER),
-                "--host",
-                LOCAL_HOST,
-                "--port",
-                str(LOCAL_PORT),
+                "--bind",
+                f"{LOCAL_HOST}:{LOCAL_PORT}",
+                "--models",
+                str(model_directory),
+                "--password",
+                remote.DEFAULT_PASSWORD,
             ],
             cwd=str(REPO_ROOT),
             env=env,

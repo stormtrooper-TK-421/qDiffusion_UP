@@ -692,6 +692,7 @@ def start(engine, app):
     backend = getattr(app, "backend", None)
     if backend:
         loadTabs(backend, app)
+        backend.startBackendAfterStartup()
 
 def exceptHook(exc_type, exc_value, exc_tb):
     global ERRORED

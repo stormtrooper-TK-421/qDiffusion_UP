@@ -15,8 +15,12 @@ MimeType=application/x-qdiffusion;x-scheme-handler/qdiffusion;
 Type=Application
 StartupNotify=false
 Terminal=false" > qDiffusion-handler.desktop
-xdg-desktop-menu install qDiffusion-handler.desktop
-xdg-mime default qDiffusion-handler.desktop x-scheme-handler/qdiffusion
+if command -v xdg-desktop-menu >/dev/null 2>&1; then
+    xdg-desktop-menu install qDiffusion-handler.desktop || true
+fi
+if command -v xdg-mime >/dev/null 2>&1; then
+    xdg-mime default qDiffusion-handler.desktop x-scheme-handler/qdiffusion || true
+fi
 rm qDiffusion-handler.desktop
 chmod +x "$SCRIPT"
 

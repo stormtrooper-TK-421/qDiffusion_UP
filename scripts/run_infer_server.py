@@ -23,14 +23,16 @@ def ensure_infer_server_present() -> None:
 
 if __name__ == "__main__":
     ensure_infer_server_present()
+    models_dir = (REPO_ROOT / "models").resolve()
+    models_dir.mkdir(parents=True, exist_ok=True)
     raise SystemExit(
         run_with_venv(
             [
                 str(INFER_SERVER),
-                "--host",
-                "127.0.0.1",
-                "--port",
-                "28888",
+                "--bind",
+                "127.0.0.1:28888",
+                "--models",
+                str(models_dir),
             ]
         )
     )

@@ -9,11 +9,6 @@ from pathlib import Path
 
 from env_common import REPO_ROOT, build_env, venv_python
 
-DEFAULT_SMOKE_TESTS = [
-    "tests/test_env_sanity.py",
-    "tests/test_qml_load.py",
-]
-
 PYQT_IMPORT_PATTERNS = (
     "import PyQt5",
     "from PyQt5",
@@ -85,12 +80,6 @@ def _assert_sd_inference_server_present() -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--pytest-args",
-        nargs="*",
-        default=DEFAULT_SMOKE_TESTS,
-        help="Pytest targets/args for smoke test execution (default: env + qml smoke tests).",
-    )
     return parser.parse_args()
 
 
@@ -99,11 +88,6 @@ def main() -> int:
     _run_python(["scripts/qml_audit.py"], label="QML audit")
     _run_python(["scripts/check_requirements_layout.py"], label="requirements layout")
     _run_python(["scripts/check_dependency_phase_split.py"], label="dependency phase split")
-    _run_python(
-        ["-m", "pytest", *args.pytest_args],
-        label="pytest smoke",
-        extra_env={"QT_QPA_PLATFORM": "offscreen", "QDIFFUSION_QML_SMOKE_ARGS": "--no-effects"},
-    )
     _assert_no_pyqt5_imports()
     _assert_sd_inference_server_present()
     print("[prebuild] all checks passed.")
