@@ -11,7 +11,6 @@ import subprocess
 import os
 import glob
 import shutil
-import importlib
 import json
 import hashlib
 import argparse
@@ -39,6 +38,13 @@ LAUNCHER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 APPID = "arenasys.qdiffusion." + hashlib.md5(LAUNCHER.encode("utf-8")).hexdigest()
 ERRORED = False
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SOURCE_DIR = os.path.join(REPO_ROOT, "source")
+QML_DIR = os.path.join(SOURCE_DIR, "qml")
+
+
+def _qml_local_url(*relative_parts):
+    """Resolve startup QML/assets strictly from on-disk source/qml paths."""
+    return QUrl.fromLocalFile(os.path.join(QML_DIR, *relative_parts))
 
 
 def _load_requirements(requirement_path):
@@ -469,8 +475,9 @@ def launch(url):
     coordinator = Coordinator(app, engine)
     qmlRegisterSingletonType(Coordinator, "gui", 1, 0, "COORDINATOR", lambda _qml, _js, obj=coordinator: obj)
 
-    import qml.qml_rc
-    splash_url = QUrl("qrc:/Splash.qml")
+    # Startup routing is disk-only: no qrc fallback path or runtime branching.
+    engine.rootContext().setContextProperty("STARTUP_QML_DIR_URL", _qml_local_url("").toString())
+    splash_url = _qml_local_url("Splash.qml")
 
     engine.load(splash_url)
 
@@ -494,15 +501,7 @@ def launch(url):
     sys.exit(app.exec())
 
 def ready():
-    import importlib
-
-    if "qml.qml_rc" in sys.modules:
-        import qml.qml_rc
-        importlib.reload(qml.qml_rc)
-    else:
-        import qml.qml_rc
-
-    qmlRegisterSingletonType(QUrl("qrc:/Common.qml"), "gui", 1, 0, "COMMON")
+    qmlRegisterSingletonType(_qml_local_url("Common.qml"), "gui", 1, 0, "COMMON")
 
 def start(engine, app):
     backend = getattr(app, "backend", None)
