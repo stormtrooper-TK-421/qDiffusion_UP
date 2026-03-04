@@ -21,6 +21,11 @@ Built from the ground up alongside [sd-inference-server](https://github.com/stor
 
 Information is available on the [Wiki](https://github.com/stormtrooper-TK-421/qDiffusion_UP/wiki/Guide).
 
+### Python requirement files
+- `requirements/gui.txt` = mandatory for launch + installer UI.
+- `source/requirements_inference.txt` = optional post-mode dependencies.
+
+
 ### Remote
 Notebooks for running a remote instance are available: [Colab](https://colab.research.google.com/github/stormtrooper-TK-421/qDiffusion_UP/blob/master/remote_colab.ipynb), [Kaggle](https://www.kaggle.com/code/arenasys/qdiffusion), [SageMaker](https://studiolab.sagemaker.aws/import/github/stormtrooper-TK-421/qDiffusion_UP/blob/master/remote_sagemaker.ipynb)
 

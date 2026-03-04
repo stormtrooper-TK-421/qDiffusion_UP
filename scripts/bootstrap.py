@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Bootstrap a single hermetic project virtual environment."""
+"""Bootstrap a single hermetic project virtual environment.
+
+Dependency layout contract:
+- ``requirements/gui.txt`` contains mandatory dependencies for launch + installer UI.
+- ``source/requirements_inference.txt`` contains optional post-mode dependencies.
+"""
 
 from __future__ import annotations
 
