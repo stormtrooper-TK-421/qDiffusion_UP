@@ -705,7 +705,7 @@ Item {
                     width: 18
                     height: 18
                     inset: 2
-                    icon: "qrc:/icons/settings.svg"
+                    icon: APP_QML_ROOT_URL + "/icons/settings.svg"
                     iconColor: colorColumn.advanced ? COMMON.bg4 : COMMON.bg6
                     iconHoverColor: colorColumn.advanced ? COMMON.fg3 : COMMON.fg0
 

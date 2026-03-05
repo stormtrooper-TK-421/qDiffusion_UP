@@ -67,7 +67,7 @@ Item {
             anchors.rightMargin: 6
             width: height
             inset: 4
-            icon: "qrc:/icons/ellipsis.svg"
+            icon: APP_QML_ROOT_URL + "/icons/ellipsis.svg"
 
             onPressed: {
                 root.settings()

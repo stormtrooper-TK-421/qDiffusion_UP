@@ -123,7 +123,7 @@ Item {
             Image {
                 id: placeholder
                 visible: !modelCard.desc
-                source: "qrc:/icons/placeholder_black.svg"
+                source: APP_QML_ROOT_URL + "/icons/placeholder_black.svg"
                 height: parent.width/4
                 width: height
                 sourceSize: Qt.size(width*1.25, height*1.25)
@@ -573,7 +573,7 @@ Item {
             anchors.margins: 2
             smooth: false
             inset: 0
-            icon: modelCard.fav ? "qrc:/icons/star.svg" : "qrc:/icons/star-outline-big.svg"
+            icon: modelCard.fav ? APP_QML_ROOT_URL + "/icons/star.svg" : APP_QML_ROOT_URL + "/icons/star-outline-big.svg"
             onPressed: {
                 GUI.toggleFavourite(sql_name)
             }
@@ -636,7 +636,7 @@ Item {
             anchors.margins: 2
             smooth: false
             inset: 0
-            icon: modelCard.showing ? "qrc:/icons/info-big.svg" : "qrc:/icons/info-outline-big.svg"
+            icon: modelCard.showing ? APP_QML_ROOT_URL + "/icons/info-big.svg" : APP_QML_ROOT_URL + "/icons/info-outline-big.svg"
 
             onPressed: {
                 if (modelCard.showing) {

@@ -10,7 +10,7 @@ Item {
     property var size: Math.max(root.width, root.height) / 4
     property var running
     visible: running
-    property var source: "qrc:/icons/loading.svg"
+    property var source: APP_QML_ROOT_URL + "/icons/loading.svg"
     property var duration: 1000
 
     Image {

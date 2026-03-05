@@ -53,7 +53,7 @@ MenuItem {
                 height: 20
                 visible:  menuItem.checked
                 anchors.centerIn: parent
-                source: "qrc:/icons/tick.svg"
+                source: APP_QML_ROOT_URL + "/icons/tick.svg"
                 sourceSize: Qt.size(parent.width, parent.height)
             }
 

@@ -108,7 +108,7 @@ Item {
                 anchors.top: parent.top
                 anchors.right: parent.right
                 anchors.margins: 2
-                icon: "qrc:/icons/folder.svg"
+                icon: APP_QML_ROOT_URL + "/icons/folder.svg"
                 border.color: COMMON.bg4
 
                 onPressed: {
@@ -174,7 +174,7 @@ Item {
                 anchors.top: parent.top
                 anchors.right: parent.right
                 anchors.margins: 2
-                icon: "qrc:/icons/folder.svg"
+                icon: APP_QML_ROOT_URL + "/icons/folder.svg"
                 border.color: COMMON.bg4
 
                 onPressed: {

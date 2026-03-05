@@ -210,7 +210,7 @@ FocusReleaser {
                         height: 16
                         visible: COORDINATOR.enforceVersions
                         anchors.centerIn: parent
-                        source: "qrc:/icons/tick.svg"
+                        source: APP_QML_ROOT_URL + "/icons/tick.svg"
                         sourceSize: Qt.size(parent.width, parent.height)
                     }
 

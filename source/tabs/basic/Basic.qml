@@ -543,7 +543,7 @@ Item {
         Connections {
             target: BASIC.detailers
             function onOpeningSettings(detailer) {
-                var component = Qt.createComponent("qrc:/components/DetailerDialog.qml")
+                var component = Qt.createComponent(APP_QML_ROOT_URL + "/components/DetailerDialog.qml")
                 if(component.status != Component.Ready) {
                     console.log("ERROR", component.errorString())
                 } else {
@@ -670,7 +670,7 @@ Item {
                     height: 23
                     width: 23
                     tooltip: root.tr("Hide Parameters")
-                    icon: "qrc:/icons/eye.svg"
+                    icon: APP_QML_ROOT_URL + "/icons/eye.svg"
                     onPressed: {
                         fullParams.show = false
                     }

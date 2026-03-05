@@ -53,7 +53,7 @@ Item {
                 width: visible ? 28 : 0
                 anchors.margins: 0
                 tooltip: root.tr("Disconnect")
-                icon: "qrc:/icons/disconnect.svg"
+                icon: APP_QML_ROOT_URL + "/icons/disconnect.svg"
                 border.color: COMMON.bg4
 
                 onPressed: {
@@ -131,7 +131,7 @@ Item {
                 width: height
                 height: parent.height-2
                 inset: 5
-                icon: "qrc:/icons/key.svg"
+                icon: APP_QML_ROOT_URL + "/icons/key.svg"
                 tooltip: root.tr(toggled ? "Hide API Keys" : "Show API Keys")
                 border.color: COMMON.bg4
                 border.width: 1
@@ -247,7 +247,7 @@ Item {
                 anchors.right: parent.right
                 anchors.margins: 2
                 tooltip: root.tr("Select file")
-                icon: "qrc:/icons/folder.svg"
+                icon: APP_QML_ROOT_URL + "/icons/folder.svg"
                 border.color: COMMON.bg4
 
                 onPressed: {

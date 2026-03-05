@@ -89,10 +89,10 @@ Rectangle {
             selectByMouse: true
             persistentSelection: true
             FontLoader {
-                source: "qrc:/fonts/Cantarell-Regular.ttf"
+                source: APP_QML_ROOT_URL + "/fonts/Cantarell-Regular.ttf"
             }
             FontLoader {
-                source: "qrc:/fonts/SourceCodePro-Regular.ttf"
+                source: APP_QML_ROOT_URL + "/fonts/SourceCodePro-Regular.ttf"
             }
 
             property var pointSize: 10.8

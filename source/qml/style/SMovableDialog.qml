@@ -261,7 +261,7 @@ Item {
             id: closeButton
             visible: !dialog.anchored
             color: "transparent"
-            icon: "qrc:/icons/cross.svg"
+            icon: APP_QML_ROOT_URL + "/icons/cross.svg"
             anchors.top: parent.top
             anchors.right: parent.right
             height: 20

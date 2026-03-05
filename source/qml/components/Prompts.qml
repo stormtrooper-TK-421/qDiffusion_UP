@@ -113,7 +113,7 @@ Item {
                     height: 23
                     width: 23
                     tooltip: root.tr("Inspect")
-                    icon: "qrc:/icons/search.svg"
+                    icon: APP_QML_ROOT_URL + "/icons/search.svg"
                     inset: 8
                     onPressed: {
                         root.inspect()
@@ -130,7 +130,7 @@ Item {
                     height: 23
                     width: 23
                     tooltip: root.tr("Show Negative prompt")
-                    icon: "qrc:/icons/eye.svg"
+                    icon: APP_QML_ROOT_URL + "/icons/eye.svg"
                     onPressed: {
                         promptDivider.offset = area.width/2
                     }
@@ -221,7 +221,7 @@ Item {
                     height: 23
                     width: 23
                     tooltip: root.tr("Hide Negative prompt")
-                    icon: "qrc:/icons/eye.svg"
+                    icon: APP_QML_ROOT_URL + "/icons/eye.svg"
 
                     onPressed: {
                         promptDivider.offset = 5

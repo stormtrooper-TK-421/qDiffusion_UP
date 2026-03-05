@@ -12,9 +12,6 @@ import os
 import json
 import hashlib
 import argparse
-import importlib
-import time
-import shutil
 from qml_compat import singleton_instance_provider
 from pathlib import Path
 
@@ -67,138 +64,24 @@ def _portable_qml_import_dir() -> Path | None:
     return None
 
 
-def _portable_rcc_command() -> str:
-    local_rcc = Path(EXPECTED_VENV) / "Scripts" / "pyside6-rcc.exe"
-    if local_rcc.exists():
-        return str(local_rcc)
-    return "pyside6-rcc"
+def _repo_file_url(path: Path) -> str:
+    return QUrl.fromLocalFile(str(path.resolve())).toString()
 
 
-def buildQMLRc():
-    qml_root = Path(QML_DIR)
-    tabs_source_root = Path(TAB_DIR)
-    generated_tabs_root = qml_root / "tabs"
-    qrc_path = qml_root / "qml.qrc"
-
-    if generated_tabs_root.exists():
-        shutil.rmtree(generated_tabs_root, ignore_errors=True)
-    generated_tabs_root.mkdir(parents=True, exist_ok=True)
-
-    copied_resources: list[Path] = []
-    tab_copy_extensions = {".qml", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
-
-    for source_file in tabs_source_root.rglob("*"):
-        if not source_file.is_file():
-            continue
-        if source_file.suffix.lower() not in tab_copy_extensions:
-            continue
-        destination_file = generated_tabs_root / source_file.relative_to(tabs_source_root)
-        destination_file.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_file, destination_file)
-        copied_resources.append(destination_file)
-
-    resources: set[Path] = set()
-    for resource_dir in ("icons", "fonts", "components", "style"):
-        search_root = qml_root / resource_dir
-        if not search_root.exists():
-            continue
-        for resource_file in search_root.rglob("*"):
-            if resource_file.is_file():
-                resources.add(resource_file)
-
-    for root_qml in qml_root.glob("*.qml"):
-        if root_qml.is_file():
-            resources.add(root_qml)
-
-    resources.update(copied_resources)
-
-    qrc_entries = []
-    for resource in sorted(resources):
-        resource_relative = resource.relative_to(qml_root).as_posix()
-        qrc_entries.append(f"        <file>{resource_relative}</file>")
-
-    qrc_contents = "\n".join([
-        "<RCC>",
-        "    <qresource prefix=\"/\">",
-        *qrc_entries,
-        "    </qresource>",
-        "</RCC>",
-        "",
-    ])
-    qrc_path.write_text(qrc_contents, encoding="utf-8")
+def _repo_file_qurl(path: Path) -> QUrl:
+    return QUrl.fromLocalFile(str(path.resolve()))
 
 
-def buildQMLPy():
-    qml_root = Path(QML_DIR)
-    qml_qrc = qml_root / "qml.qrc"
-    qml_rc_module = qml_root / "qml_rc.py"
-    generated_tabs_root = qml_root / "tabs"
-
-    if not qml_qrc.exists():
-        raise RuntimeError(
-            f"Missing {qml_qrc}. Run buildQMLRc() before buildQMLPy()."
-        )
-
-    result = subprocess.run(
-        [_portable_rcc_command(), "-o", str(qml_rc_module), str(qml_qrc)],
-        capture_output=True,
-        text=True,
-        check=False,
-        env=build_isolated_env(),
-        **_windows_hidden_subprocess_kwargs(),
-    )
-    if result.returncode != 0:
-        stdout = (result.stdout or "(no stdout)").strip()
-        stderr = (result.stderr or "(no stderr)").strip()
-        if result.returncode == 127 or "not found" in stderr.lower() or "not recognized" in stderr.lower():
-            raise RuntimeError(
-                "Failed to run pyside6-rcc while generating source/qml/qml_rc.py. "
-                "Install/repair PySide6 tooling in .venv and ensure pyside6-rcc is on PATH. "
-                f"stdout: {stdout} | stderr: {stderr}"
-            )
-        raise RuntimeError(
-            "pyside6-rcc returned a non-zero exit code while compiling source/qml/qml.qrc. "
-            "Run pyside6-rcc manually to inspect errors in resource paths. "
-            f"stdout: {stdout} | stderr: {stderr}"
-        )
-
-    if generated_tabs_root.exists():
-        shutil.rmtree(generated_tabs_root, ignore_errors=True)
-    if qml_qrc.exists():
-        for attempt in range(3):
-            try:
-                qml_qrc.unlink()
-                break
-            except PermissionError:
-                if attempt == 2:
-                    break
-                time.sleep(0.1)
+def _qml_file_url(*relative_parts: str) -> str:
+    return _repo_file_url(Path(QML_DIR, *relative_parts))
 
 
-def _register_qml_resources():
-    """Load generated qml resource module so qrc:/ URLs resolve at runtime."""
-    module_name = "qml.qml_rc"
-    try:
-        importlib.import_module(module_name)
-    except Exception as exc:
-        timestamp = datetime.datetime.now().isoformat()
-        crash_message = (
-            f"GUI {timestamp}\n"
-            "CRITICAL: Failed to register QML resources via import qml.qml_rc. "
-            "qrc:/ assets will not be available.\n"
-            "Run launch preflight to regenerate source/qml/qml_rc.py (pyside6-rcc).\n"
-            f"Error: {exc!r}\n\n"
-        )
-        with open("crash.log", "a", encoding="utf-8") as crash_log:
-            crash_log.write(crash_message)
-        print(crash_message.strip())
-        raise RuntimeError("Unable to import generated QML resource module qml.qml_rc") from exc
+def _qml_file_qurl(*relative_parts: str) -> QUrl:
+    return _repo_file_qurl(Path(QML_DIR, *relative_parts))
 
 
-def _qml_qrc_url(*relative_parts):
-    """Resolve startup QML/assets strictly from qrc:/ resource paths."""
-    path = "/".join(part.strip("/") for part in relative_parts if part)
-    return QUrl(f"qrc:/{path}" if path else "qrc:/")
+def _tab_qml_file_url(*relative_parts: str) -> str:
+    return _repo_file_url(Path(TAB_DIR, *relative_parts))
 
 
 def _load_requirements(requirement_path):
@@ -587,12 +470,6 @@ class Coordinator(QObject):
         return 1.0
     
 def launch(url):
-    qml_rc_module = Path(QML_DIR) / "qml_rc.py"
-    if not qml_rc_module.exists():
-        buildQMLRc()
-        buildQMLPy()
-    _register_qml_resources()
-
     import misc
     import gui
     import sql
@@ -668,8 +545,17 @@ def launch(url):
     app.coordinator = coordinator
     qmlRegisterSingletonType(Coordinator, "gui", 1, 0, "COORDINATOR", singleton_instance_provider(coordinator))
 
-    engine.rootContext().setContextProperty("STARTUP_QML_DIR_URL", _qml_qrc_url("").toString())
-    splash_url = _qml_qrc_url("Splash.qml")
+    app_qml_root_url = _repo_file_url(Path(QML_DIR))
+    app_tabs_root_url = _repo_file_url(Path(TAB_DIR))
+    startup_qml_dir_url = app_qml_root_url
+
+    engine.rootContext().setContextProperty("APP_QML_ROOT_URL", app_qml_root_url)
+    engine.rootContext().setContextProperty("APP_TABS_ROOT_URL", app_tabs_root_url)
+    engine.rootContext().setContextProperty("STARTUP_QML_DIR_URL", startup_qml_dir_url)
+    splash_url = _qml_file_qurl("Splash.qml")
+
+    with open("qt_crash.log", "a", encoding="utf-8") as f:
+        f.write(f"[{datetime.datetime.now().isoformat()}] [INFO] Splash startup URL: {splash_url.toString()}\n")
 
     engine.load(splash_url)
 
@@ -695,12 +581,9 @@ def launch(url):
     return app.exec()
 
 def ready():
-    qmlRegisterSingletonType(_qml_qrc_url("Common.qml"), "gui", 1, 0, "COMMON")
+    qmlRegisterSingletonType(_qml_file_qurl("Common.qml"), "gui", 1, 0, "COMMON")
 
 
-def _tab_qml_url(*relative_parts):
-    path = "/".join(part.strip("/") for part in relative_parts if part)
-    return f"qrc:/tabs/{path}"
 
 
 def loadTabs(gui_backend, parent):
@@ -721,12 +604,12 @@ def loadTabs(gui_backend, parent):
     ]
 
     tab_sources = {
-        "Generate": _tab_qml_url("basic", "Basic.qml"),
-        "Models": _tab_qml_url("explorer", "Explorer.qml"),
-        "History": _tab_qml_url("gallery", "Gallery.qml"),
-        "Merge": _tab_qml_url("merger", "Merger.qml"),
-        "Train": _tab_qml_url("trainer", "Trainer.qml"),
-        "Settings": _tab_qml_url("settings", "Settings.qml"),
+        "Generate": _tab_qml_file_url("basic", "Basic.qml"),
+        "Models": _tab_qml_file_url("explorer", "Explorer.qml"),
+        "History": _tab_qml_file_url("gallery", "Gallery.qml"),
+        "Merge": _tab_qml_file_url("merger", "Merger.qml"),
+        "Train": _tab_qml_file_url("trainer", "Trainer.qml"),
+        "Settings": _tab_qml_file_url("settings", "Settings.qml"),
     }
 
     for tab in tabs:

@@ -71,7 +71,7 @@ TabButton {
                 anchors.margins: -10
                 anchors.topMargin: -9
                 anchors.rightMargin: -4
-                source: "qrc:/icons/loading_big.svg"
+                source: APP_QML_ROOT_URL + "/icons/loading_big.svg"
                 width: height
                 running: control.working
                 duration: 300

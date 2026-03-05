@@ -97,7 +97,7 @@ FocusReleaser {
         }
 
         function addTab() {
-            var errorTab = Qt.createComponent("qrc:/Error.qml")
+            var errorTab = Qt.createComponent(APP_QML_ROOT_URL + "/Error.qml")
             for(var i = 0; i < GUI.tabSources.length; i++) {
                 var component = Qt.createComponent(GUI.tabSources[i])
                 if(component.status != Component.Ready) {
