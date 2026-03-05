@@ -34,10 +34,7 @@ namespace qDiffusion
         // Official SHA256 from python.org windows-3.14.3.json (PythonCore 3.14.3 x64)
         private const string PythonSha256 = "ec781bb03f9638d136b24da7c83b4db1652ce767848aa856a30bb87cfdb1abe4";
         private const string PythonMarkerFile = @"python\.qdiff_python_version";
-        private const string PipMarkerFile = @".venv\.qdiff_pip_upgraded";
-        private const string PySideMarkerFile = @".venv\.qdiff_pyside6_6.10.2_installed";
-        private const string RequiredPySideVersion = "6.10.2";
-        private const string PythonPackageIndex = "https://pypi.org/simple";
+        private const string BootstrapScript = @"scripts\bootstrap.py";
 
         private Dialog progress;
 
@@ -712,112 +709,29 @@ namespace qDiffusion
             return false;
         }
 
-        private void EnsureVenv(string exeDir, string repoRoot, IDictionary<string, string> pythonEnv)
+        private void EnsureBootstrapPrepared(string exeDir, string repoRoot, IDictionary<string, string> pythonEnv)
         {
-            var venvPython = Path.Combine(repoRoot, ".venv", "Scripts", "python.exe");
-            if (File.Exists(venvPython) && VenvHomeMatchesBundledPython(exeDir) && VenvConfigOk(exeDir))
+            var pythonExe = Path.Combine(repoRoot, "python", "python.exe");
+            var bootstrap = Path.Combine(repoRoot, BootstrapScript);
+            if (!File.Exists(bootstrap))
             {
-                return;
+                throw new Exception("Missing bootstrap script: scripts\\bootstrap.py");
             }
 
-            SafeDeleteDirectory(".venv");
             LaunchProgress();
-            progress?.SetLabel("Creating Environment");
-            progress?.SetProgress(99);
-            Run(pythonEnv, Path.Combine(repoRoot, "python", "python.exe"), "-m", "venv", Path.Combine(repoRoot, ".venv"));
+            progress?.SetLabel("Preparing runtime");
+            progress?.SetProgress(0);
+            Run(pythonEnv, pythonExe, bootstrap);
 
-            if (!VenvConfigOk(exeDir))
-            {
-                throw new Exception("Invalid venv configuration: include-system-site-packages must be false.");
-            }
-        }
-
-        private void EnsurePip(string repoRoot, IDictionary<string, string> pythonEnv)
-        {
             var venvPython = Path.Combine(repoRoot, ".venv", "Scripts", "python.exe");
-            bool pipOk;
-            try
+            if (!File.Exists(venvPython))
             {
-                Run(pythonEnv, venvPython, "-I", "-m", "pip", "--version");
-                pipOk = true;
-            }
-            catch
-            {
-                pipOk = false;
+                throw new Exception("Bootstrap did not create a valid .venv (missing .venv\\Scripts\\python.exe).");
             }
 
-            if (!pipOk)
+            if (!VenvHomeMatchesBundledPython(exeDir) || !VenvConfigOk(exeDir))
             {
-                Run(pythonEnv, venvPython, "-I", "-m", "ensurepip", "--upgrade");
-                Run(pythonEnv, venvPython, "-I", "-m", "pip", "--version");
-            }
-
-            if (!File.Exists(PipMarkerFile))
-            {
-                LaunchProgress();
-                progress?.SetLabel("Upgrading pip tooling");
-                progress?.SetProgress(0);
-                Run(pythonEnv, venvPython, "-I", "-m", "pip", "install", "-U", "pip", "setuptools", "wheel", "--no-cache-dir");
-                File.WriteAllText(PipMarkerFile, DateTime.UtcNow.ToString("o") + Environment.NewLine);
-            }
-        }
-
-        private bool VerifyPySideImport(string python, IDictionary<string, string> pythonEnv)
-        {
-            try
-            {
-                Run(pythonEnv, python, "-I", "-c", "import PySide6, shiboken6; from PySide6 import QtQml");
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private void EnsurePySideAndWrappers(string repoRoot, IDictionary<string, string> pythonEnv)
-        {
-            var venvPython = Path.Combine(repoRoot, ".venv", "Scripts", "python.exe");
-            var rcc = Path.Combine(repoRoot, ".venv", "Scripts", "pyside6-rcc.exe");
-
-            bool needsInstall = !File.Exists(PySideMarkerFile) || !VerifyPySideImport(venvPython, pythonEnv);
-            if (!needsInstall && !File.Exists(rcc))
-            {
-                needsInstall = true;
-            }
-
-            if (needsInstall)
-            {
-                LaunchProgress();
-                progress?.SetLabel("Installing PySide6");
-                progress?.SetProgress(0);
-                Run(
-                    pythonEnv,
-                    venvPython,
-                    "-I",
-                    "-m",
-                    "pip",
-                    "install",
-                    "--no-cache-dir",
-                    "--index-url",
-                    PythonPackageIndex,
-                    "PySide6==" + RequiredPySideVersion);
-
-                if (!VerifyPySideImport(venvPython, pythonEnv))
-                {
-                    throw new Exception("PySide6 import verification failed after installation.");
-                }
-
-                if (!File.Exists(rcc))
-                {
-                    throw new Exception("Missing required wrapper: .venv\\Scripts\\pyside6-rcc.exe");
-                }
-
-                File.WriteAllText(PySideMarkerFile, DateTime.UtcNow.ToString("o") + Environment.NewLine);
-            }
-            else if (!File.Exists(rcc))
-            {
-                throw new Exception("Missing required wrapper: .venv\\Scripts\\pyside6-rcc.exe");
+                throw new Exception("Bootstrap produced an invalid virtual environment configuration.");
             }
         }
 
@@ -850,10 +764,8 @@ namespace qDiffusion
                 var pythonEnv = BuildPythonChildEnv(repoRoot, venvDir, pythonDir);
 
                 EnsurePythonRuntime(repoRoot, pythonEnv);
-                EnsureVenv(exe_dir, repoRoot, pythonEnv);
                 pythonEnv = BuildPythonChildEnv(repoRoot, venvDir, pythonDir);
-                EnsurePip(repoRoot, pythonEnv);
-                EnsurePySideAndWrappers(repoRoot, pythonEnv);
+                EnsureBootstrapPrepared(exe_dir, repoRoot, pythonEnv);
             }
             catch (Exception ex)
             {
