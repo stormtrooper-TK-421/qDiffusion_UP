@@ -92,7 +92,7 @@ Dialog {
         }
         SIconButton {
             color: "transparent"
-            icon: "qrc:/icons/eye.svg"
+            icon: APP_QML_ROOT_URL + "/icons/eye.svg"
             tooltip: dialog.raw ? dialog.tr("Show parsed parameters") : dialog.tr("Show raw parameters")
             anchors.top: parent.top
             anchors.right: parent.right
@@ -157,7 +157,7 @@ Dialog {
                         height: 16
                         visible:  modelData.checked
                         anchors.centerIn: parent
-                        source: "qrc:/icons/tick.svg"
+                        source: APP_QML_ROOT_URL + "/icons/tick.svg"
                         sourceSize: Qt.size(parent.width, parent.height)
                     }
 

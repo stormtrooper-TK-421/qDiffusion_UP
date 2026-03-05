@@ -842,7 +842,7 @@ Item {
                                     anchors.bottom: parent.bottom
                                     anchors.left: parent.left
                                     width: height
-                                    icon: "qrc:/icons/plus.svg"
+                                    icon: APP_QML_ROOT_URL + "/icons/plus.svg"
                                     color: COMMON.bg4
                                     iconColor: COMMON.bg6
 
@@ -1111,7 +1111,7 @@ Item {
                                     anchors.bottom: parent.bottom
                                     anchors.left: parent.left
                                     width: height
-                                    icon: "qrc:/icons/plus.svg"
+                                    icon: APP_QML_ROOT_URL + "/icons/plus.svg"
                                     color: COMMON.bg4
                                     iconColor: COMMON.bg6
 

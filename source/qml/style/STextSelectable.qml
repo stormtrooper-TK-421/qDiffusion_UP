@@ -5,13 +5,13 @@ import gui
 
 TextEdit {
     FontLoader {
-        source: "qrc:/fonts/Cantarell-Regular.ttf"
+        source: APP_QML_ROOT_URL + "/fonts/Cantarell-Regular.ttf"
     }
     FontLoader {
-        source: "qrc:/fonts/Cantarell-Bold.ttf"
+        source: APP_QML_ROOT_URL + "/fonts/Cantarell-Bold.ttf"
     }
     FontLoader {
-        source: "qrc:/fonts/SourceCodePro-Regular.ttf"
+        source: APP_QML_ROOT_URL + "/fonts/SourceCodePro-Regular.ttf"
     }
     
     property var pointSize: 10.8

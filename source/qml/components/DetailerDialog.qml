@@ -110,7 +110,7 @@ SMovableDialog {
                 color: COMMON.bg2
                 border.width: 1
                 border.color: COMMON.bg4
-                icon: "qrc:/icons/text_2.svg"
+                icon: APP_QML_ROOT_URL + "/icons/text_2.svg"
                 anchors.top: parent.top
                 anchors.right: parent.right
                 anchors.rightMargin: 2

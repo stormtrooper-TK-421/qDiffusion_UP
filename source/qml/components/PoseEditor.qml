@@ -971,7 +971,7 @@ Item {
                 width: parent.width
                 height: width
                 inset: 4
-                icon: root.relative ? "qrc:/icons/rotate.svg" : "qrc:/icons/translate.svg"
+                icon: root.relative ? APP_QML_ROOT_URL + "/icons/rotate.svg" : APP_QML_ROOT_URL + "/icons/translate.svg"
                 tooltip: root.relative ? "Switch to Translation mode (Alt)" : "Switch to Rotation mode (Alt)"
                 color: "transparent"
                 onPressed: {
@@ -983,7 +983,7 @@ Item {
                 width: parent.width
                 height: width
                 inset: 12
-                icon: "qrc:/icons/save.svg"
+                icon: APP_QML_ROOT_URL + "/icons/save.svg"
                 tooltip: "Export pose image"
                 color: "transparent"
                 onPressed: {

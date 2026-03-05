@@ -131,7 +131,7 @@ Rectangle {
                         height: 23
                         width: 23
                         tooltip: root.tr("Add operation")
-                        icon: "qrc:/icons/plus.svg"
+                        icon: APP_QML_ROOT_URL + "/icons/plus.svg"
                         onPressed: {
                             MERGER.addOperation()
                         }
@@ -1266,7 +1266,7 @@ Rectangle {
                 Image {
                     id: placeholder
                     visible: movable.itemWidth == 0
-                    source: "qrc:/icons/placeholder_black.svg"
+                    source: APP_QML_ROOT_URL + "/icons/placeholder_black.svg"
                     height: 50
                     width: height
                     sourceSize: Qt.size(width*1.25, height*1.25)

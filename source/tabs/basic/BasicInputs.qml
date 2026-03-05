@@ -646,7 +646,7 @@ Item {
 
                     Image {
                         id: warningImg
-                        source: "qrc:/icons/warning.svg"
+                        source: APP_QML_ROOT_URL + "/icons/warning.svg"
                         width: parent.height - 7
                         height: width
                         sourceSize: Qt.size(parent.width, parent.height)
@@ -689,7 +689,7 @@ Item {
                     id: settingsButton
                     visible: parent.hasSettings && modelData.hasSource
                     color: "transparent"
-                    icon: "qrc:/icons/settings.svg"
+                    icon: APP_QML_ROOT_URL + "/icons/settings.svg"
                     x: borderFrame.x + 1
                     y: borderFrame.y + borderFrame.height - 20.5
                     height: 20
@@ -705,7 +705,7 @@ Item {
                     id: refreshButton
                     visible: modelData.canAnnotate && !modelData.empty
                     color: "transparent"
-                    icon: "qrc:/icons/refresh.svg"
+                    icon: APP_QML_ROOT_URL + "/icons/refresh.svg"
                     x: borderFrame.x + borderFrame.width - 20
                     y: borderFrame.y + borderFrame.height - 20
                     height: 20
@@ -728,7 +728,7 @@ Item {
                     SIconButton {
                         visible: !modelData.hasSource && modelData.canLoad
                         id: uploadButton
-                        icon: "qrc:/icons/folder.svg"
+                        icon: APP_QML_ROOT_URL + "/icons/folder.svg"
                         onPressed: {
                             itemFrame.forceActiveFocus()
                             inputFileDialog.open()
@@ -758,7 +758,7 @@ Item {
                     SIconButton {
                         visible: !modelData.hasSource && modelData.canPaint
                         id: paintButton
-                        icon: modelData.isPose ? "qrc:/icons/person.svg" : "qrc:/icons/paint.svg"
+                        icon: modelData.isPose ? APP_QML_ROOT_URL + "/icons/person.svg" : APP_QML_ROOT_URL + "/icons/paint.svg"
                         onPressed: {
                             itemFrame.forceActiveFocus()
                             modelData.setImageCanvas()
@@ -1072,7 +1072,7 @@ Item {
 
                 SIconButton {
                     id: addButton
-                    icon: "qrc:/icons/plus.svg"
+                    icon: APP_QML_ROOT_URL + "/icons/plus.svg"
                     color: "transparent"
                     anchors.centerIn: parent
 

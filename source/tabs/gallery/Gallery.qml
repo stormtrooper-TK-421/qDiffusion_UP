@@ -438,7 +438,7 @@ Rectangle {
             Image {
                 id: placeholder
                 visible: view.empty
-                source: "qrc:/icons/placeholder_black.svg"
+                source: APP_QML_ROOT_URL + "/icons/placeholder_black.svg"
                 height: 50
                 width: height
                 sourceSize: Qt.size(width*1.25, height*1.25)
@@ -528,7 +528,7 @@ Rectangle {
                     height: 23
                     width: 23
                     tooltip: root.tr("Import")
-                    icon: "qrc:/icons/back.svg"
+                    icon: APP_QML_ROOT_URL + "/icons/back.svg"
                     inset: 8
                     onPressed: {
                         GUI.currentTab = "Generate"
@@ -546,7 +546,7 @@ Rectangle {
                     height: 23
                     width: 23
                     tooltip: root.tr("Inspect")
-                    icon: "qrc:/icons/search.svg"
+                    icon: APP_QML_ROOT_URL + "/icons/search.svg"
                     inset: 8
                     onPressed: {
                         GUI.currentTab = "Generate"

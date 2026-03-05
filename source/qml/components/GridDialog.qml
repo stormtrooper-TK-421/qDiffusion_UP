@@ -36,7 +36,7 @@ SMovableDialog {
 
     titleItem: SIconButton {
         color: "transparent"
-        icon: "qrc:/icons/settings.svg"
+        icon: APP_QML_ROOT_URL + "/icons/settings.svg"
         anchors.top: parent.top
         anchors.right: parent.right
         height: 20

@@ -53,7 +53,7 @@ AdvancedDropArea {
         Image {
             id: dropIcon
             visible: root.icon
-            source: "qrc:/icons/download.svg"
+            source: APP_QML_ROOT_URL + "/icons/download.svg"
             height: 30
             width: height
             sourceSize: Qt.size(width*1.25, height*1.25)

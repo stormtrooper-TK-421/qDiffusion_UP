@@ -24,9 +24,6 @@ LAUNCHER = REPO_ROOT / "qDiffusion.exe"
 IS_WIN = platform.system() == "Windows"
 ERRORED = False
 GUI_REQUIREMENTS_PATH = REPO_ROOT / "requirements" / "gui.txt"
-QML_ROOT = REPO_ROOT / "source" / "qml"
-QML_RC_PATH = QML_ROOT / "qml_rc.py"
-QML_QRC_PATH = QML_ROOT / "qml.qrc"
 
 
 def _candidate_portable_qt_dirs() -> dict[str, pathlib.Path | list[pathlib.Path] | None]:
@@ -160,55 +157,18 @@ def _load_requirements(requirement_path: pathlib.Path) -> list[str]:
 
 def _ensure_runtime_requirements() -> None:
     gui_requirements = _load_requirements(GUI_REQUIREMENTS_PATH)
-    missing_gui_requirements = missing_python_requirements(gui_requirements, enforce_version=True)
+    missing_gui_requirements = missing_python_requirements(gui_requirements, enforce_version=False)
 
     if not missing_gui_requirements:
         return
 
-    bootstrap_command = [
-        sys.executable,
-        str(REPO_ROOT / "scripts" / "bootstrap.py"),
-    ]
-    bootstrap_result = subprocess.run(
-        bootstrap_command,
-        capture_output=True,
-        text=True,
-        check=False,
-        **_windows_hidden_subprocess_kwargs(),
+    requirements = ", ".join(missing_gui_requirements)
+    raise RuntimeError(
+        "GUI runtime dependencies are missing or broken for launch: "
+        f"{requirements}. "
+        "Run scripts/bootstrap.py manually from the repository .venv to install/repair GUI dependencies. "
+        "Normal startup is validation-only and will not mutate .venv."
     )
-    if bootstrap_result.returncode != 0:
-        requirements = ", ".join(missing_gui_requirements)
-        bootstrap_stdout = (bootstrap_result.stdout or "(no stdout)").strip()
-        bootstrap_stderr = (bootstrap_result.stderr or "(no stderr)").strip()
-        compatibility_report = _extract_compatibility_probe_report(bootstrap_stdout, bootstrap_stderr)
-        compatibility_details = ""
-        if compatibility_report:
-            compatibility_details = f" Compatibility probe details: {compatibility_report}."
-        raise RuntimeError(
-            "Failed to bootstrap GUI dependencies. "
-            f"Missing requirements before bootstrap: {requirements}. "
-            f"{compatibility_details}"
-            f"bootstrap stdout: {bootstrap_stdout} | bootstrap stderr: {bootstrap_stderr}"
-        )
-
-    missing_gui_requirements = missing_python_requirements(gui_requirements, enforce_version=True)
-    if missing_gui_requirements:
-        requirements = ", ".join(missing_gui_requirements)
-        raise RuntimeError(
-            "GUI runtime requirements are still missing after bootstrap: "
-            f"{requirements}. Run scripts/bootstrap.py to reinstall GUI dependencies."
-        )
-
-
-def _extract_compatibility_probe_report(stdout: str, stderr: str) -> str:
-    marker = "COMPATIBILITY PROBE FAILED"
-    for source in (stdout, stderr):
-        lines = [line.strip() for line in source.splitlines() if line.strip()]
-        for index, line in enumerate(lines):
-            if marker not in line:
-                continue
-            return " ; ".join(lines[index:])
-    return ""
 
 
 def _log_preflight(stage: str, status: str, message: str, remediation: str | None = None) -> None:
@@ -230,84 +190,50 @@ def _validate_environment_and_venv() -> None:
         raise RuntimeError("launch.py must run from .venv.")
 
 
-def _validate_or_repair_gui_dependencies() -> None:
+def _validate_gui_dependencies() -> None:
     _ensure_runtime_requirements()
 
 
-def _build_qml_qrc() -> None:
-    import glob
-    import shutil
 
-    if QML_QRC_PATH.exists():
-        QML_QRC_PATH.unlink()
+class _StartupLock:
+    def __init__(self, lock_path: pathlib.Path) -> None:
+        self._lock_path = lock_path
+        self._fh = None
 
-    items: list[pathlib.Path] = []
-    for tab_path in (REPO_ROOT / "source" / "tabs").glob("*"):
-        for src in tab_path.glob("*.*"):
-            if src.suffix.lower() not in {".qml", ".svg"}:
-                continue
-            dst = QML_ROOT / src.relative_to(REPO_ROOT / "source")
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(src, dst)
-            items.append(dst)
+    def __enter__(self) -> "_StartupLock":
+        self._lock_path.parent.mkdir(parents=True, exist_ok=True)
+        self._fh = self._lock_path.open("a+", encoding="utf-8")
+        try:
+            if IS_WIN:
+                import msvcrt
 
-    for pattern in ("*.qml", "components/*.qml", "style/*.qml", "fonts/*.ttf", "icons/*.svg"):
-        items.extend(pathlib.Path(path) for path in glob.glob(str(QML_ROOT / pattern)))
+                msvcrt.locking(self._fh.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
 
-    qrc_entries = []
-    for item in sorted({path.resolve() for path in items}):
-        relative_item = item.relative_to(QML_ROOT).as_posix()
-        qrc_entries.append(f"\t\t<file>{relative_item}</file>\n")
+                fcntl.flock(self._fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            raise RuntimeError(
+                "Another qDiffusion launch is already running. Wait for it to finish and retry."
+            ) from exc
+        return self
 
-    contents = f"""<RCC>\n\t<qresource prefix=\"/\">\n{''.join(qrc_entries)}\t</qresource>\n</RCC>"""
-    QML_QRC_PATH.write_text(contents, encoding="utf-8")
+    def __exit__(self, exc_type, exc, tb) -> None:
+        if self._fh is None:
+            return
+        try:
+            if IS_WIN:
+                import msvcrt
 
+                self._fh.seek(0)
+                msvcrt.locking(self._fh.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
 
-def _compile_qml_resources() -> None:
-    import time
-
-    qml_rc_module = QML_ROOT / "qml_rc.py"
-    if qml_rc_module.exists():
-        qml_rc_module.unlink()
-
-    local_rcc = EXPECTED_VENV / "Scripts" / "pyside6-rcc.exe"
-    rcc_command = str(local_rcc) if local_rcc.exists() else "pyside6-rcc"
-
-    status = subprocess.run(
-        [rcc_command, "-o", str(qml_rc_module), str(QML_QRC_PATH)],
-        capture_output=True,
-        text=True,
-        check=False,
-        **_windows_hidden_subprocess_kwargs(),
-    )
-    if status.returncode != 0:
-        details = (
-            f"stdout: {(status.stdout or '(no stdout)').strip()} | "
-            f"stderr: {(status.stderr or '(no stderr)').strip()}"
-        )
-        raise RuntimeError(f"pyside6-rcc failed to compile QML resources: {details}")
-
-    tabs_copy = QML_ROOT / "tabs"
-    if tabs_copy.exists():
-        import shutil
-
-        shutil.rmtree(tabs_copy, ignore_errors=True)
-    if QML_QRC_PATH.exists():
-        for attempt in range(3):
-            try:
-                QML_QRC_PATH.unlink()
-                break
-            except PermissionError:
-                if attempt == 2:
-                    break
-                time.sleep(0.1)
-
-
-def _ensure_qml_resources_ready() -> None:
-    if QML_RC_PATH.exists():
-        return
-    _build_qml_qrc()
-    _compile_qml_resources()
+                fcntl.flock(self._fh.fileno(), fcntl.LOCK_UN)
+        finally:
+            self._fh.close()
+            self._fh = None
 
 
 PREFLIGHT_STAGES: tuple[PreflightStage, ...] = (
@@ -317,27 +243,23 @@ PREFLIGHT_STAGES: tuple[PreflightStage, ...] = (
         remediation="Run scripts/bootstrap.py and launch from the repository .venv with PYTHONNOUSERSITE=1.",
     ),
     PreflightStage(
-        name="GUI dependency validation + repair",
-        checker=_validate_or_repair_gui_dependencies,
-        remediation="Run scripts/bootstrap.py to reinstall GUI dependencies.",
-    ),
-    PreflightStage(
-        name="QML resource readiness",
-        checker=_ensure_qml_resources_ready,
-        remediation="Ensure pyside6-rcc is available in .venv and rerun launch.py.",
+        name="GUI dependency validation",
+        checker=_validate_gui_dependencies,
+        remediation="Run scripts/bootstrap.py manually from the repository .venv to install/repair GUI dependencies.",
     ),
 )
 
 
 def run_preflight_pipeline() -> None:
-    for stage in PREFLIGHT_STAGES:
-        _log_preflight(stage.name, "START", "stage started", remediation=stage.remediation)
-        try:
-            stage.checker()
-        except Exception as exc:
-            _log_preflight(stage.name, "FAIL", str(exc), remediation=stage.remediation)
-            raise RuntimeError(f"Preflight stage failed: {stage.name}. {exc}") from exc
-        _log_preflight(stage.name, "OK", "stage completed", remediation=stage.remediation)
+    with _StartupLock(REPO_ROOT / ".tmp" / "launch.lock"):
+        for stage in PREFLIGHT_STAGES:
+            _log_preflight(stage.name, "START", "stage started", remediation=stage.remediation)
+            try:
+                stage.checker()
+            except Exception as exc:
+                _log_preflight(stage.name, "FAIL", str(exc), remediation=stage.remediation)
+                raise RuntimeError(f"Preflight stage failed: {stage.name}. {exc}") from exc
+            _log_preflight(stage.name, "OK", "stage completed", remediation=stage.remediation)
 
 
 if __name__ == "__main__":

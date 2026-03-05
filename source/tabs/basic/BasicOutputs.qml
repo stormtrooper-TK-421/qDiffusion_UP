@@ -182,18 +182,18 @@ Item {
                                 return ""
                             }
                             if(modelObj.fetching) {
-                                return "qrc:/icons/circle_loading.svg"
+                                return APP_QML_ROOT_URL + "/icons/circle_loading.svg"
                             }
                             if(modelObj.ready) {
                                 return ""
                             }
                             if(GUI.statusMode != 2) {
-                                return "qrc:/icons/warning.svg"
+                                return APP_QML_ROOT_URL + "/icons/warning.svg"
                             }
                             if(GUI.statusProgress == -1) {
-                                return "qrc:/icons/circle_8.svg"
+                                return APP_QML_ROOT_URL + "/icons/circle_8.svg"
                             }
-                            return "qrc:/icons/circle_" + Math.floor(GUI.statusProgress * 8) + ".svg"
+                            return APP_QML_ROOT_URL + "/icons/circle_" + Math.floor(GUI.statusProgress * 8) + ".svg"
                         }
                         inset: 4
                         height: 22

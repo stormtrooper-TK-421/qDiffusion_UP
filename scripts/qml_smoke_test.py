@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import glob
 import os
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SOURCE_DIR = REPO_ROOT / "source"
 QML_DIR = SOURCE_DIR / "qml"
+TAB_DIR = SOURCE_DIR / "tabs"
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("PYTHONNOUSERSITE", "1")
@@ -55,41 +53,11 @@ class _Coordinator(QObject):
         return
 
 
-def _ensure_qrc_module() -> None:
-    qml_rc_py = QML_DIR / "qml_rc.py"
-    if qml_rc_py.exists():
-        return
-
-    qml_rc = QML_DIR / "qml.qrc"
-    tab_files: list[str] = []
-    for tab in glob.glob(str(SOURCE_DIR / "tabs" / "*")):
-        for src in glob.glob(os.path.join(tab, "*.*")):
-            if src.split(".")[-1] in {"qml", "svg"}:
-                dst = QML_DIR / Path(src).relative_to(SOURCE_DIR)
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy(src, dst)
-                tab_files.append(str(dst))
-
-    items = tab_files
-    items += glob.glob(str(QML_DIR / "*.qml"))
-    items += glob.glob(str(QML_DIR / "components" / "*.qml"))
-    items += glob.glob(str(QML_DIR / "style" / "*.qml"))
-    items += glob.glob(str(QML_DIR / "fonts" / "*.ttf"))
-    items += glob.glob(str(QML_DIR / "icons" / "*.svg"))
-
-    normalized = sorted({Path(item).as_posix() for item in items})
-    files = "".join(f"\t\t<file>{Path(f).relative_to(QML_DIR).as_posix()}</file>\n" for f in normalized)
-    qml_rc.write_text(f"<RCC>\n\t<qresource prefix=\"/\">\n{files}\t</qresource>\n</RCC>", encoding="utf-8")
-
-    subprocess.run(["pyside6-rcc", "-o", str(qml_rc_py), str(qml_rc)], cwd=REPO_ROOT, check=True)
-    shutil.rmtree(QML_DIR / "tabs", ignore_errors=True)
-    qml_rc.unlink(missing_ok=True)
+def _file_url(path: Path) -> str:
+    return QUrl.fromLocalFile(str(path.resolve())).toString()
 
 
 def main() -> int:
-    _ensure_qrc_module()
-
-    import qml.qml_rc  # noqa: F401
     import misc
 
     app = QApplication(["qml_smoke_test", "--no-effects"])
@@ -102,15 +70,22 @@ def main() -> int:
 
     engine.warnings.connect(_record_warnings)
 
+    app_qml_root_url = _file_url(QML_DIR)
+    app_tabs_root_url = _file_url(TAB_DIR)
+
     translator = _Translator(app)
     coordinator = _Coordinator(app)
 
     qmlRegisterSingletonType(_Translator, "gui", 1, 0, "TRANSLATOR", lambda _engine: translator)
-    qmlRegisterSingletonType(QUrl("qrc:/Common.qml"), "gui", 1, 0, "COMMON")
+    qmlRegisterSingletonType(QUrl.fromLocalFile(str((QML_DIR / "Common.qml").resolve())), "gui", 1, 0, "COMMON")
     qmlRegisterSingletonType(_Coordinator, "gui", 1, 0, "COORDINATOR", lambda _engine: coordinator)
     misc.registerTypes()
 
-    engine.load(QUrl("qrc:/Splash.qml"))
+    engine.rootContext().setContextProperty("APP_QML_ROOT_URL", app_qml_root_url)
+    engine.rootContext().setContextProperty("APP_TABS_ROOT_URL", app_tabs_root_url)
+    engine.rootContext().setContextProperty("STARTUP_QML_DIR_URL", app_qml_root_url)
+
+    engine.load(QUrl.fromLocalFile(str((QML_DIR / "Splash.qml").resolve())))
     app.processEvents()
 
     if not engine.rootObjects():

@@ -38,7 +38,7 @@ SDialog {
         width: 16
         height: 16
         inset: 0
-        icon: "qrc:/icons/info-big.svg"
+        icon: APP_QML_ROOT_URL + "/icons/info-big.svg"
         tooltip: dialog.tr("Copy trace")
         onPressed: {
             GUI.copyError()
