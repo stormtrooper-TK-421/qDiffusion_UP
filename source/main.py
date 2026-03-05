@@ -15,8 +15,9 @@ import argparse
 from qml_compat import singleton_instance_provider
 from pathlib import Path
 
-os.environ["QT_DEBUG_PLUGINS"] = "1"
-os.environ["QML_IMPORT_TRACE"] = "1"
+if os.environ.get("QDIFFUSION_QT_DEBUG", "0") == "1":
+    os.environ.setdefault("QT_DEBUG_PLUGINS", "1")
+    os.environ.setdefault("QML_IMPORT_TRACE", "1")
 
 from importlib.metadata import PackageNotFoundError, version
 

@@ -11,6 +11,7 @@ This repository enforces a strict two-phase dependency model.
 ### Allowed in Phase A
 - Reading/installing `requirements/gui.txt` in bootstrap/launch code.
 - GUI/runtime essentials needed before installer interaction.
+- All startup entrypoints (`qDiffusion.exe`, `source/start.bat`, `source/start.sh`, `source/start-mac.sh`) must run `scripts/bootstrap.py` before `source/launch.py`.
 
 Concrete examples (allowed in `requirements/gui.txt`):
 - `PySide6`
