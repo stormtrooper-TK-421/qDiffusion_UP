@@ -1,8 +1,8 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
+import QtQuick 2.15
+import QtQuick.Controls 2.1
+import QtGraphicalEffects 1.12
 
-import gui
+import gui 1.0
 
 AdvancedDropArea {
     id: root
@@ -20,7 +20,7 @@ AdvancedDropArea {
 
         Glow {
             opacity: 0.3
-            visible: COMMON.effectsEnabled && dropText.visible
+            visible: dropText.visible
             anchors.fill: dropText
             radius: 4
             samples: 4
@@ -41,7 +41,7 @@ AdvancedDropArea {
         }
 
         Glow {
-            visible: COMMON.effectsEnabled && dropIcon.visible
+            visible: dropIcon.visible
             opacity: 0.3
             anchors.fill: dropIcon
             radius: 4
@@ -53,7 +53,7 @@ AdvancedDropArea {
         Image {
             id: dropIcon
             visible: root.icon
-            source: APP_QML_ROOT_URL + "/icons/download.svg"
+            source: "qrc:/icons/download.svg"
             height: 30
             width: height
             sourceSize: Qt.size(width*1.25, height*1.25)
@@ -62,7 +62,7 @@ AdvancedDropArea {
 
         ColorOverlay {
             id: dropIconOverlay
-            visible: COMMON.effectsEnabled && dropIcon.visible
+            visible: dropIcon.visible
             anchors.fill: dropIcon
             source: dropIcon
             color: COMMON.fg2

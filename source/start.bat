@@ -1,44 +1,23 @@
 @echo off
-setlocal
+for /f "tokens=4-7 delims=[.] " %%i in ('ver') do (if %%i==Version (set v=%%j.%%k) else (set v=%%i.%%j))
 
-if not exist "python\python.exe" (
-    if exist "..\python\python.exe" (
-        cd ..
-    )
+IF NOT EXIST "python" (
+    cd ..
 )
 
-if not exist "python\python.exe" (
-    echo DOWNLOADING PYTHON 3.14.3...
-    bitsadmin.exe /transfer "DOWNLOADING PYTHON 3.14.3" "https://www.python.org/ftp/python/3.14.3/python-3.14.3-amd64.zip" "%CD%\python.zip"
+IF NOT EXIST "python" (
+    echo DOWNLOADING PYTHON...
 
-    if errorlevel 1 (
-        echo Failed to download Python runtime.
-        exit /b 1
+    IF "%v%" == "10.0" (
+        bitsadmin.exe /transfer "DOWNLOADING PYTHON 3.10..." "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.10.20+20260303-x86_64-pc-windows-msvc-shared-install_only.tar.gz" "%CD%/python.tar.gz"
+    ) else (
+        bitsadmin.exe /transfer "DOWNLOADING PYTHON 3.10..." "https://github.com/astral-sh/python-build-standalone/releases/download/20260303/cpython-3.10.20+20260303-x86_64-pc-windows-msvc-shared-install_only.tar.gz" "%CD%/python.tar.gz"
     )
 
-    echo INSTALLING PYTHON...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "New-Item -ItemType Directory -Force '%CD%\python' | Out-Null; Expand-Archive -Force '%CD%\python.zip' '%CD%\python'"
-    if errorlevel 1 (
-        echo Failed to install Python runtime.
-        del /q "%CD%\python.zip" 2>nul
-        exit /b 1
-    )
-
-    del /q "%CD%\python.zip"
+    echo EXTRACTING PYTHON...
+    tar -xf "python.tar.gz"
+    del /Q "python.tar.gz"
 )
 
-set "PYTHONNOUSERSITE=1"
-set "PYTHONDONTWRITEBYTECODE=1"
-set "QML_DISABLE_DISK_CACHE=1"
-set "QT_DISABLE_SHADER_DISK_CACHE=1"
-set "QSG_RHI_DISABLE_SHADER_DISK_CACHE=1"
-
-".\python\python.exe" scripts\bootstrap.py
-if errorlevel 1 (
-    echo Bootstrap failed.
-    exit /b 1
-)
-
-set "VIRTUAL_ENV=%CD%\.venv"
-start "" ".\.venv\Scripts\python.exe" source\launch.py
-exit /b 0
+start .\python\python.exe source\launch.py
+exit

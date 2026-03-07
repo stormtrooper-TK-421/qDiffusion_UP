@@ -1,13 +1,13 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
-import QtQuick.Layouts
-import Qt.labs.platform
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtGraphicalEffects 1.12
+import QtQuick.Layouts 1.15
+import Qt.labs.platform 1.1
 
-import gui
+import gui 1.0
 
-import "../../qml/style"
-import "../../qml/components"
+import "../../style"
+import "../../components"
 
 Item {
     id: root
@@ -53,7 +53,7 @@ Item {
                 width: visible ? 28 : 0
                 anchors.margins: 0
                 tooltip: root.tr("Disconnect")
-                icon: APP_QML_ROOT_URL + "/icons/disconnect.svg"
+                icon: "qrc:/icons/disconnect.svg"
                 border.color: COMMON.bg4
 
                 onPressed: {
@@ -131,7 +131,7 @@ Item {
                 width: height
                 height: parent.height-2
                 inset: 5
-                icon: APP_QML_ROOT_URL + "/icons/key.svg"
+                icon: "qrc:/icons/key.svg"
                 tooltip: root.tr(toggled ? "Hide API Keys" : "Show API Keys")
                 border.color: COMMON.bg4
                 border.width: 1
@@ -247,7 +247,7 @@ Item {
                 anchors.right: parent.right
                 anchors.margins: 2
                 tooltip: root.tr("Select file")
-                icon: APP_QML_ROOT_URL + "/icons/folder.svg"
+                icon: "qrc:/icons/folder.svg"
                 border.color: COMMON.bg4
 
                 onPressed: {

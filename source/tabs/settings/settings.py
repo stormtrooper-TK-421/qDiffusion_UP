@@ -1,99 +1,23 @@
 import math
 import os
 import platform
-import subprocess
-import sys
 IS_WIN = platform.system() == 'Windows'
 
-from PySide6.QtCore import Property, Signal, QObject, Slot, QUrl, QThread
-from PySide6.QtQml import qmlRegisterSingletonType
+from PyQt5.QtCore import pyqtProperty, pyqtSignal, QObject, pyqtSlot, QUrl, QThread
+from PyQt5.QtQml import qmlRegisterSingletonType
 
-from qml_compat import singleton_instance_provider
 from misc import MimeData
 import git
 
-
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-SYNC_INFER_REQUIREMENTS_SCRIPT = os.path.join(REPO_ROOT, "scripts", "sync_infer_requirements.py")
-
-
-def _windows_hidden_subprocess_kwargs() -> dict[str, object]:
-    if not IS_WIN:
-        return {}
-    kwargs: dict[str, object] = {}
-    startupinfo_cls = getattr(subprocess, "STARTUPINFO", None)
-    startf_use_show_window = getattr(subprocess, "STARTF_USESHOWWINDOW", 0)
-    if startupinfo_cls and startf_use_show_window:
-        startupinfo = startupinfo_cls()
-        startupinfo.dwFlags |= startf_use_show_window
-        startupinfo.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
-        kwargs["startupinfo"] = startupinfo
-    creation_flag = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    if creation_flag:
-        kwargs["creationflags"] = creation_flag
-    return kwargs
-
-
 class Update(QThread):
-    status = Signal(str)
-    failed = Signal(str)
-
-    def __init__(self, settings):
-        super().__init__(settings)
-        self.settings = settings
-        self.inference_commit_changed = False
-        self.dependency_plan_changed = False
-        self.error_message = ""
-
     def run(self):
-        try:
-            self.status.emit("Updating repositories...")
-            pre_infer_commit, _ = self._safe_commit(git.INFER_REPO_PATH)
-
-            git.git_reset(git.ROOT_REPO_PATH, git.QDIFF_URL)
-            git.git_reset(git.INFER_REPO_PATH, git.INFER_URL)
-
-            post_infer_commit, _ = self._safe_commit(git.INFER_REPO_PATH)
-            self.inference_commit_changed = pre_infer_commit != post_infer_commit
-
-            self.status.emit("Syncing inference requirements...")
-            self._sync_infer_requirements()
-
-            self.status.emit("Refreshing installer dependency metadata...")
-            self.dependency_plan_changed = bool(self.settings.refreshInstallerPackagePlan())
-            self.status.emit("Installer dependency metadata refreshed.")
-        except Exception as exc:
-            self.error_message = str(exc)
-            self.failed.emit(self.error_message)
-
-    def _safe_commit(self, path):
-        try:
-            return git.git_last(path)
-        except Exception:
-            return None, None
-
-    def _sync_infer_requirements(self):
-        env = os.environ.copy()
-        env["PYTHONNOUSERSITE"] = "1"
-        env["PYTHONDONTWRITEBYTECODE"] = "1"
-        env["QML_DISABLE_DISK_CACHE"] = "1"
-        env["QT_DISABLE_SHADER_DISK_CACHE"] = "1"
-        env["QSG_RHI_DISABLE_SHADER_DISK_CACHE"] = "1"
-        status = subprocess.run(
-            [sys.executable, SYNC_INFER_REQUIREMENTS_SCRIPT],
-            cwd=REPO_ROOT,
-            env=env,
-            capture_output=True,
-            text=True,
-            check=False,
-            **_windows_hidden_subprocess_kwargs(),
-        )
-        if status.returncode != 0:
-            details = (status.stderr or status.stdout or "(no output)").strip()
-            raise RuntimeError(f"Failed to sync inference requirements after update: {details}")
+        git.git_reset(".", git.QDIFF_URL)
+        inf = os.path.join("source", "sd-inference-server")
+        if os.path.exists(inf):
+            git.git_reset(inf, git.INFER_URL)
 
 class Settings(QObject):
-    updated = Signal()
+    updated = pyqtSignal()
     def __init__(self, parent=None):
         super().__init__(parent)
         self.priority = math.inf
@@ -103,18 +27,16 @@ class Settings(QObject):
         self._currentUpload = ""
         self._currentUploadMode = 0
 
-        qmlRegisterSingletonType(Settings, "gui", 1, 0, "SETTINGS", singleton_instance_provider(self))
+        qmlRegisterSingletonType(Settings, "gui", 1, 0, "SETTINGS", lambda qml, js: self)
 
         self._needRestart = False
         self._currentGitInfo = None
         self._currentGitServerInfo = None
         self._triedGitInit = False
         self._updating = False
-        self._updateStatusMessage = ""
-        self._dependencyPlanNeedsRestart = False
         self.getGitInfo()
 
-    @Property(str, notify=updated)
+    @pyqtProperty(str, notify=updated)
     def currentTab(self): 
         return self._currentTab
     
@@ -123,15 +45,15 @@ class Settings(QObject):
         self._currentTab = tab
         self.updated.emit()
 
-    @Property(str, notify=updated)
+    @pyqtProperty(str, notify=updated)
     def currentUpload(self): 
         return self._currentUpload
 
-    @Property(int, notify=updated)
+    @pyqtProperty(int, notify=updated)
     def currentUploadMode(self): 
         return self._currentUploadMode
 
-    @Slot(str, int)
+    @pyqtSlot(str, int)
     def setUpload(self, file, mode):
         if file.startswith("file:"):
             file = QUrl(file).toLocalFile()
@@ -139,12 +61,12 @@ class Settings(QObject):
         self._currentUploadMode = mode
         self.updated.emit()
 
-    @Slot()
+    @pyqtSlot()
     def restart(self):
         self.updated.emit()
         self.gui.restartBackend()
 
-    @Slot(str, str)
+    @pyqtSlot(str, str)
     def download(self, type, url):
         if not url:# or self.gui.remoteInfoStatus != "Connected":
             return
@@ -158,44 +80,25 @@ class Settings(QObject):
         id = self.gui.makeRequest({"type":"download", "data":request})
         self.gui.network.create(url, id, True)
 
-    @Slot()
+    @pyqtSlot()
     def refresh(self):
         self.gui.makeRequest({"type":"options"})
 
-    @Slot()
+    @pyqtSlot()
     def update(self):
         self._updating = True
-        self._updateStatusMessage = "Updating repositories..."
-        self._updateThread = Update(self)
-        self._updateThread.status.connect(self._onUpdateStatus)
-        self._updateThread.failed.connect(self._onUpdateFailed)
-        self._updateThread.finished.connect(self.getGitInfo)
-        self._updateThread.finished.connect(self.updateDone)
-        self._updateThread.start()
+        update = Update(self)
+        update.finished.connect(self.getGitInfo)
+        update.finished.connect(self.updateDone)
+        update.start()
         self.updated.emit()
 
-    @Slot()
+    @pyqtSlot()
     def updateDone(self):
         self._updating = False
-        if not self._updateThread.error_message:
-            self._dependencyPlanNeedsRestart = self._dependencyPlanNeedsRestart or self._updateThread.dependency_plan_changed
-            if self._updateStatusMessage == "":
-                self._updateStatusMessage = "Update completed."
-        elif not self._updateStatusMessage:
-            self._updateStatusMessage = "Update failed."
-        self.updated.emit()
-
-    @Slot(str)
-    def _onUpdateStatus(self, message):
-        self._updateStatusMessage = message
-        self.updated.emit()
-
-    @Slot(str)
-    def _onUpdateFailed(self, message):
-        self._updateStatusMessage = f"Update failed: {message}"
         self.updated.emit()
     
-    @Slot(str, str)
+    @pyqtSlot(str, str)
     def upload(self, type, file):
         file = QUrl.fromLocalFile(file)
         if not file.isLocalFile() or self.gui.remoteInfoStatus != "Connected":
@@ -204,75 +107,59 @@ class Settings(QObject):
         id = self.gui.makeRequest({"type":"upload", "data":{"type": type, "file": file}})
         self.gui.network.create(file.split(os.path.sep)[-1], id, False)
 
-    @Slot(QUrl, result=str)
+    @pyqtSlot(QUrl, result=str)
     def toLocal(self, url):
         return url.toLocalFile()
     
-    @Slot(MimeData, result=str)
+    @pyqtSlot(MimeData, result=str)
     def pathDrop(self, mimeData):
         mimeData = mimeData.mimeData
         for url in mimeData.urls():
             if url.isLocalFile():
                 return url.toLocalFile() 
 
-    @Property(str, notify=updated)
+    @pyqtProperty(str, notify=updated)
     def gitInfo(self):
         return self._gitInfo
     
-    @Property(str, notify=updated)
+    @pyqtProperty(str, notify=updated)
     def gitServerInfo(self):
         return self._gitServerInfo
     
-    @Property(bool, notify=updated)
+    @pyqtProperty(bool, notify=updated)
     def needRestart(self):
         return self._needRestart
-
-    @Property(str, notify=updated)
-    def updateStatusMessage(self):
-        return self._updateStatusMessage
     
-    @Property(bool, notify=updated)
+    @pyqtProperty(bool, notify=updated)
     def updating(self):
         return self._updating
     
-    @Slot()
+    @pyqtSlot()
     def getGitInfo(self):
-        root_commit, root_label = self._repo_status(git.ROOT_REPO_PATH, "GUI")
-        infer_commit, infer_label = self._repo_status(git.INFER_REPO_PATH, "Inference")
+        self._gitInfo = "Unknown"
+        self._gitServerInfo = ""
 
-        if root_commit is None and not self._triedGitInit:
+        commit, label = git.git_last(".")
+
+        if commit:
+            if self._currentGitInfo == None:
+                self._currentGitInfo = commit
+            self._gitInfo = label
+            self._needRestart = self._currentGitInfo != commit
+        elif not self._triedGitInit:
             self._triedGitInit = True
-            git.git_init(git.ROOT_REPO_PATH, git.QDIFF_URL)
-            root_commit, root_label = self._repo_status(git.ROOT_REPO_PATH, "GUI")
+            git.git_init(".", git.QDIFF_URL)
 
-        if self._currentGitInfo is None:
-            self._currentGitInfo = root_commit
-        if self._currentGitServerInfo is None:
-            self._currentGitServerInfo = infer_commit
-
-        self._gitInfo = root_label
-        self._gitServerInfo = infer_label
-        code_needs_restart = (self._currentGitInfo != root_commit) or (self._currentGitServerInfo != infer_commit)
-        self._needRestart = code_needs_restart or self._dependencyPlanNeedsRestart
+        server_dir = os.path.join("source","sd-inference-server")
+        if os.path.exists(server_dir):
+            try:
+                commit, label = git.git_last(server_dir)
+            except:
+                pass
+            if commit:
+                if self._currentGitServerInfo == None:
+                    self._currentGitServerInfo = commit
+                self._gitServerInfo = label
+                self._needRestart = self._needRestart or (self._currentGitServerInfo != commit)
 
         self.updated.emit()
-
-    def _repo_status(self, path, name):
-        commit, label = git.git_last(path)
-        if commit:
-            return commit, f"{name} repo ({path}) commit {commit[:12]}: {label}"
-        return None, f"{name} repo ({path}) commit unknown"
-
-    @Slot()
-    def refreshInstallerPackagePlan(self):
-        app = self.gui.parent()
-        coordinator = getattr(app, "coordinator", None) if app else None
-        if coordinator and hasattr(coordinator, "find_needed"):
-            previous_plan = list(coordinator.packages) if hasattr(coordinator, "packages") else []
-            if hasattr(coordinator, "clearCache"):
-                coordinator.clearCache()
-            coordinator.find_needed()
-            refreshed_plan = list(coordinator.packages) if hasattr(coordinator, "packages") else []
-            coordinator.updated.emit()
-            return previous_plan != refreshed_plan
-        return False

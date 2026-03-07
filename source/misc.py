@@ -64,13 +64,11 @@ try:
 except:
     pass
 
-from PySide6.QtCore import Signal as pyqtSignal, Slot as pyqtSlot, Property as pyqtProperty, QObject, Qt, QEvent, QMimeData, QByteArray, QBuffer, QIODevice, QRect, QRectF, QPoint, QUrl, QThread, QSharedMemory
-from PySide6.QtQuick import QQuickItem, QQuickPaintedItem
-from PySide6.QtGui import QColor, QImage, QSyntaxHighlighter
-from PySide6.QtNetwork import QNetworkRequest, QNetworkReply, QNetworkAccessManager
-from PySide6.QtQml import qmlRegisterType, qmlRegisterUncreatableType, qmlRegisterSingletonType
-
-from qt_buffer_compat import buffer_slice
+from PyQt5.QtCore import pyqtSlot, pyqtProperty, pyqtSignal, QObject, Qt, QEvent, QMimeData, QByteArray, QBuffer, QIODevice, QRect, QRectF, QPoint, QUrl, QThread, QSharedMemory
+from PyQt5.QtQuick import QQuickItem, QQuickPaintedItem
+from PyQt5.QtGui import QColor, QImage, QSyntaxHighlighter, QColor
+from PyQt5.QtNetwork import QNetworkRequest, QNetworkReply, QNetworkAccessManager
+from PyQt5.QtQml import qmlRegisterType, qmlRegisterUncreatableType
 
 class FocusReleaser(QQuickItem):
     releaseFocus = pyqtSignal()
@@ -215,7 +213,7 @@ class MimeData(QObject):
         super().__init__(parent)
         self._mimeData = mimeData
 
-    @pyqtProperty(QObject)
+    @pyqtProperty(QMimeData)
     def mimeData(self):
         return self._mimeData
     
@@ -1638,7 +1636,7 @@ class Signaller(QThread):
         status = None
         self.mem.lock()
         try:
-            data = buffer_slice(self.mem.data(), 1024)
+            data = self.mem.data().asarray(1024)
             if value != None:
                 data[-1] = value
             status = data[-1]
@@ -1651,7 +1649,7 @@ class Signaller(QThread):
     def send(self, message):
         self.mem.lock()
         try:
-            data = buffer_slice(self.mem.data(), 1024)
+            data = self.mem.data().asarray(1024)
             for i, c in enumerate(message):
                 data[i] = ord(c)
         except Exception as e:
@@ -1666,7 +1664,7 @@ class Signaller(QThread):
         while not self.isInterruptionRequested():
             self.mem.lock()
             try:
-                data = buffer_slice(self.mem.data(), 1024)
+                data = self.mem.data().asarray(1024)
 
                 message = []
                 for i in range(1024):

@@ -1,5 +1,5 @@
-from PySide6.QtCore import Property, Slot, Signal, QObject, QSize, Qt, QRect, QRectF, QPointF
-from PySide6.QtGui import QImage, QColor, QPainter, QBrush, QPolygonF
+from PyQt5.QtCore import pyqtProperty, pyqtSlot, pyqtSignal, QObject, QSize, Qt, QRect, QRectF, QPointF
+from PyQt5.QtGui import QImage, QColor, QPainter, QBrush, QPolygonF
 import math
 
 NAMES = [
@@ -59,7 +59,7 @@ def rotatePoint(point, angle):
     return QPointF(x*c - y*s, x*s + y*c)
 
 class PoseNode(QObject):
-    updated = Signal()
+    updated = pyqtSignal()
     def __init__(self, parent, point, index):
         super().__init__(parent)
 
@@ -81,7 +81,7 @@ class PoseNode(QObject):
 
         self._index = index
     
-    @Property(QPointF, notify=updated)
+    @pyqtProperty(QPointF, notify=updated)
     def point(self):
         if self.isNull:
             return self._point
@@ -100,12 +100,12 @@ class PoseNode(QObject):
         self._point = point
         self.updated.emit()
 
-    @Slot(QPointF)
+    @pyqtSlot(QPointF)
     def setOffset(self, offset):
         self._offset = offset
         self.updated.emit()
 
-    @Slot()
+    @pyqtSlot()
     def applyOffset(self):
         if self._offset.isNull():
             return
@@ -116,7 +116,7 @@ class PoseNode(QObject):
     def appliedOffset(self):
         return self._point + self._offset
     
-    @Slot(QPointF, bool, bool)
+    @pyqtSlot(QPointF, bool, bool)
     def setRelativeOffset(self, offset, allowAngle, allowLength):
         if not self._relative:
             self.setOffset(offset)
@@ -131,7 +131,7 @@ class PoseNode(QObject):
 
         self.updated.emit()
 
-    @Slot()
+    @pyqtSlot()
     def applyRelativeOffset(self):
         if not self._relative:
             self.applyOffset()
@@ -143,21 +143,21 @@ class PoseNode(QObject):
         self._length_offset = 0
         self.updated.emit()
 
-    @Slot(QPointF, QPointF)
+    @pyqtSlot(QPointF, QPointF)
     def setScale(self, origin, scale):
         self._origin = origin
         self._scale = scale
         self._rotation = 0
         self.updated.emit()
 
-    @Slot(QPointF, float)
+    @pyqtSlot(QPointF, float)
     def setRotation(self, origin, rotation):
         self._origin = origin
         self._scale = QPointF()
         self._rotation = rotation
         self.updated.emit()
 
-    @Slot()
+    @pyqtSlot()
     def applyTransform(self):
         if self._origin.isNull():
             return
@@ -176,7 +176,7 @@ class PoseNode(QObject):
     def appliedRotation(self):
         return rotatePoint(self._point - self._origin, self._rotation) + self._origin
     
-    @Slot()
+    @pyqtSlot()
     def clearOffsets(self):
         self._offset = QPointF()
         self._origin = QPointF()
@@ -206,7 +206,7 @@ class PoseNode(QObject):
         if self._relative:
             self._relative.updated.connect(self.onRelativeUpdated)
 
-    @Slot()
+    @pyqtSlot()
     def onRelativeUpdated(self):
         self.updated.emit()
 
@@ -216,32 +216,32 @@ class PoseNode(QObject):
         else:
             return self._angle + self._angle_offset
 
-    @Property(bool, notify=updated)
+    @pyqtProperty(bool, notify=updated)
     def isNull(self):
         return self._point.isNull()
     
-    @Property(QColor, notify=updated)
+    @pyqtProperty(QColor, notify=updated)
     def color(self):
         color = COLORS[self._index]
         return QColor(color[0], color[1], color[2])
     
-    @Property(str, notify=updated)
+    @pyqtProperty(str, notify=updated)
     def name(self):
         return NAMES[self._index]
         
-    @Property(QRectF, notify=updated)
+    @pyqtProperty(QRectF, notify=updated)
     def bound(self):
         return self.parent().bound
     
-    @Slot()
+    @pyqtSlot()
     def delete(self):
         self.parent().deleteNode(self)
 
-    @Slot(QPointF)
+    @pyqtSlot(QPointF)
     def attach(self, position):
         self.parent().attachNode(self, position)
 
-    @Slot(QRectF, bool)
+    @pyqtSlot(QRectF, bool)
     def flip(self, bound, vertical):
         pos = self._point - bound.topLeft()
         pos = QPointF(pos.x()/bound.width(), pos.y()/bound.height())
@@ -256,8 +256,8 @@ class PoseNode(QObject):
         self.updated.emit()
 
 class PoseEdge(QObject):
-    updated = Signal()
-    nullUpdated = Signal()
+    updated = pyqtSignal()
+    nullUpdated = pyqtSignal()
     def __init__(self, parent, nodeA, nodeB, index):
         super().__init__(parent)
 
@@ -270,38 +270,38 @@ class PoseEdge(QObject):
         self._nodeA.updated.connect(self.nodeUpdated)
         self._nodeB.updated.connect(self.nodeUpdated)
 
-    @Property(PoseNode, notify=updated)
+    @pyqtProperty(PoseNode, notify=updated)
     def nodeA(self):
         return self._nodeA
     
-    @Property(PoseNode, notify=updated)
+    @pyqtProperty(PoseNode, notify=updated)
     def nodeB(self):
         return self._nodeB
 
-    @Property(bool, notify=nullUpdated)
+    @pyqtProperty(bool, notify=nullUpdated)
     def isNull(self):
         return self._null
     
-    @Slot()
+    @pyqtSlot()
     def nodeUpdated(self):
         null = self.nodeA.isNull or self.nodeB.isNull 
         if null != self._null:
             self._null = null
             self.nullUpdated.emit()
     
-    @Property(QColor, notify=updated)
+    @pyqtProperty(QColor, notify=updated)
     def color(self):
         color = COLORS[self._index]
         return QColor(color[0], color[1], color[2])
     
-    @Property(QRectF, notify=updated)
+    @pyqtProperty(QRectF, notify=updated)
     def bound(self):
         return self.parent().bound
 
 class Pose(QObject):
-    relativeUpdated = Signal()
-    boundUpdated = Signal()
-    updated = Signal()
+    relativeUpdated = pyqtSignal()
+    boundUpdated = pyqtSignal()
+    updated = pyqtSignal()
     def __init__(self, parent=None, points=[], relative=False):
         super().__init__(parent)
         self._nodes = [PoseNode(self, p, i) for i, p in enumerate(points)]
@@ -316,7 +316,7 @@ class Pose(QObject):
         if relative:
             self.relative = relative
 
-    @Property(list, notify=updated)
+    @pyqtProperty(list, notify=updated)
     def nodes(self):
         return self._nodes
     
@@ -326,7 +326,7 @@ class Pose(QObject):
     def isEmpty(self):
         return all([n.isNull for n in self._nodes])
 
-    @Slot(PoseNode)
+    @pyqtSlot(PoseNode)
     def deleteNode(self, node):
         if not node in self._nodes:
             return
@@ -369,7 +369,7 @@ class Pose(QObject):
             bound_h = 0.7
         return QPointF(bound_w, bound_h)
 
-    @Slot(PoseNode, QPointF)
+    @pyqtSlot(PoseNode, QPointF)
     def attachNode(self, node, position):
         if not node in self._nodes:
             return
@@ -379,7 +379,7 @@ class Pose(QObject):
 
         self.doAttach(node, closest, bound)
     
-    @Slot(float)
+    @pyqtSlot(float)
     def attachAll(self, aspect):
         bound = self.guessBound(aspect)
 
@@ -395,11 +395,11 @@ class Pose(QObject):
             if not attached:
                 break
 
-    @Property(list, notify=updated)
+    @pyqtProperty(list, notify=updated)
     def edges(self):
         return self._edges
     
-    @Slot(PoseNode, result=list)
+    @pyqtSlot(PoseNode, result=list)
     def getRepairable(self, node):
         if not node in self._nodes:
             return []
@@ -415,11 +415,11 @@ class Pose(QObject):
         
         return repairable
     
-    @Slot(result=int)
+    @pyqtSlot(result=int)
     def repairAmount(self):
         return len([n for n in self._nodes if n.isNull])
 
-    @Property(QRectF, notify=boundUpdated)
+    @pyqtProperty(QRectF, notify=boundUpdated)
     def bound(self):
         poly = QPolygonF([n.point for n in self.nodes if not n.isNull])
         return poly.boundingRect()
@@ -505,7 +505,7 @@ class Pose(QObject):
 
         self.relativeUpdated.emit()
 
-    @Property(bool, notify=relativeUpdated)
+    @pyqtProperty(bool, notify=relativeUpdated)
     def relative(self):
         return self._relative
     
@@ -516,7 +516,7 @@ class Pose(QObject):
         self._relative = relative
         self.computeRelative()
 
-    @Slot(PoseNode, float)
+    @pyqtSlot(PoseNode, float)
     def addRelativeAngle(self, node, offset):
         if node._relative == None:
             node._angle += offset

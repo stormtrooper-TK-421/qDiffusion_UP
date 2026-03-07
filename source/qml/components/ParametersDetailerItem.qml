@@ -1,8 +1,8 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtGraphicalEffects 1.15
 
-import gui
+import gui 1.0
 
 import "../style"
 
@@ -67,7 +67,7 @@ Item {
             anchors.rightMargin: 6
             width: height
             inset: 4
-            icon: APP_QML_ROOT_URL + "/icons/ellipsis.svg"
+            icon: "qrc:/icons/ellipsis.svg"
 
             onPressed: {
                 root.settings()

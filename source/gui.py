@@ -2,18 +2,20 @@ import os
 import random
 import datetime
 import json
-from bson import BSON
+import bson
 import difflib
 import time
 import platform
 import urllib.parse
 IS_WIN = platform.system() == 'Windows'
 
-from PySide6.QtCore import Slot as pyqtSlot, Property as pyqtProperty, Signal as pyqtSignal, QObject, Qt, QEvent, QMimeData, QUrl, QSize, QThreadPool
-from PySide6.QtQuick import QQuickItem, QQuickPaintedItem, QQuickTextDocument
-from PySide6.QtGui import QImage, QColor, QDrag, QDesktopServices
-from PySide6.QtQml import qmlRegisterType
-from PySide6.QtWidgets import QApplication
+from PyQt5.QtCore import pyqtSlot, pyqtProperty, pyqtSignal, QObject, Qt, QEvent, QMimeData, QUrl, QSize, QThreadPool
+from PyQt5.QtQuick import QQuickItem, QQuickPaintedItem
+from PyQt5.QtGui import QImage, QColor, QDrag, QDesktopServices
+from PyQt5.QtQml import qmlRegisterType
+from PyQt5.QtWidgets import QApplication
+
+from PyQt5.QtQuick import QQuickTextDocument
 from enum import Enum
 
 import sql
@@ -25,8 +27,6 @@ import wildcards
 import translation
 import misc
 import parameters
-
-from paths import resource_path
 
 NAME = "qDiffusion"
 
@@ -117,8 +117,6 @@ class GUI(QObject):
         self._config.updated.connect(self.onConfigUpdated)
         self._remoteStatus = RemoteStatusMode.INACTIVE
         self._remoteLatency = 0
-        self._startup_ready_for_inference = False
-        self._pending_backend_restart = False
 
         self._modelFolders = []
 
@@ -137,6 +135,8 @@ class GUI(QObject):
         self.backend = backend.Backend(self)
         self.backend.response.connect(self.onResponse)
         self.backend.updated.connect(self.backendUpdated)
+        if not parent.endpoint:
+            self.backend.setEndpoint(self._config._values.get("endpoint"), self._config._values.get("password"))
 
         self.watchModelDirectory()
 
@@ -415,7 +415,7 @@ class GUI(QObject):
             trace = ""
             if "trace" in data:
                 trace = data["trace"]
-                with open(resource_path("crash.log"), "a", encoding='utf-8') as f:
+                with open("crash.log", "a", encoding='utf-8') as f:
                     f.write(f"INFERENCE {datetime.datetime.now()}\n{self._errorTrace}\n")
             self.setError(self._statusText, data["message"], trace)
             self.reset.emit(id)
@@ -426,7 +426,7 @@ class GUI(QObject):
             self._errorTrace = ""
             if "trace" in data:
                 self._errorTrace = data["trace"]
-                with open(resource_path("crash.log"), "a", encoding='utf-8') as f:
+                with open("crash.log", "a", encoding='utf-8') as f:
                     f.write(f"REMOTE {datetime.datetime.now()}\n{self._errorTrace}\n")
             self._remoteStatus = RemoteStatusMode.ERRORED
             self.statusUpdated.emit()
@@ -635,23 +635,8 @@ class GUI(QObject):
 
         self.backend.stop()
         self.backend.wait()
-        if self._startup_ready_for_inference:
-            self.backend.setEndpoint(endpoint, password)
-            self._pending_backend_restart = False
-        else:
-            self._pending_backend_restart = True
-        self.reset.emit(-1)
-
-    @pyqtSlot()
-    def startBackendAfterStartup(self):
-        if self._startup_ready_for_inference:
-            return
-
-        self._startup_ready_for_inference = True
-        endpoint = self._config._values.get("endpoint")
-        password = self._config._values.get("password")
         self.backend.setEndpoint(endpoint, password)
-        self._pending_backend_restart = False
+        self.reset.emit(-1)
 
     @pyqtSlot(str)
     def onSignal(self, message):
@@ -670,10 +655,7 @@ class GUI(QObject):
         self._config._values.set("endpoint", endpoint)
         self._config._values.set("password", password)
 
-        if self._startup_ready_for_inference:
-            self.restartBackend()
-        else:
-            self._pending_backend_restart = True
+        self.restartBackend()
 
     @pyqtSlot()
     def backendUpdated(self):
@@ -709,7 +691,7 @@ class GUI(QObject):
                     if url.isLocalFile() and url.endswith(".bin"):
                         with open(url.toLocalFile(), mode="rb") as f:
                             data = f.read()
-                            request = BSON(data).decode()
+                            request = bson.loads(data)
                             self.makeRequest(request)
                             break
         except Exception as e:
@@ -717,16 +699,11 @@ class GUI(QObject):
                 self._errorText = str(e)
                 self.errorUpdated.emit()
 
-    def _resolve_repo_path(self, path):
-        if not path:
-            return resource_path("")
-        return resource_path(path)
-
     def modelDirectory(self):
-        return self._resolve_repo_path(self._config._values.get("model_directory"))
+        return self._config._values.get("model_directory")
     
     def outputDirectory(self):
-        return self._resolve_repo_path(self._config._values.get("output_directory"))
+        return self._config._values.get("output_directory")
     
     @pyqtSlot()
     def watchModelDirectory(self):
@@ -839,20 +816,19 @@ class GUI(QObject):
         if self._favourites == None:
             data = []
             try:
-                with open(resource_path("fav.json"), 'r', encoding="utf-8") as f:
+                with open("fav.json", 'r', encoding="utf-8") as f:
                     data = json.load(f)
             except Exception:
                 pass
             self._favourites = data
         else:
             if self._favourites == []:
-                fav_file = resource_path("fav.json")
-                if os.path.exists(fav_file):
-                    os.remove(fav_file)
+                if os.path.exists("fav.json"):
+                    os.remove("fav.json")
             else:
                 data = list(self._favourites)
                 try:
-                    with open(resource_path("fav.json"), 'w', encoding="utf-8") as f:
+                    with open("fav.json", 'w', encoding="utf-8") as f:
                         json.dump(data, f, indent=4)
                 except Exception:
                     pass
@@ -868,20 +844,19 @@ class GUI(QObject):
         if self._defaults == None:
             data = {}
             try:
-                with open(resource_path("defaults.json"), 'r', encoding="utf-8") as f:
+                with open("defaults.json", 'r', encoding="utf-8") as f:
                     data = json.load(f)
             except Exception:
                 pass
             self._defaults = data
         else:
             if self._defaults == {}:
-                defaults_file = resource_path("defaults.json")
-                if os.path.exists(defaults_file):
-                    os.remove(defaults_file)
+                if os.path.exists("defaults.json"):
+                    os.remove("defaults.json")
             else:
                 data = dict(self._defaults)
                 try:
-                    with open(resource_path("defaults.json"), 'w', encoding="utf-8") as f:
+                    with open("defaults.json", 'w', encoding="utf-8") as f:
                         json.dump(data, f, indent=4)
                 except Exception:
                     pass
@@ -926,7 +901,7 @@ class GUI(QObject):
         url = self._hostEndpoint
         password = self._hostPassword
         if url.startswith("wss") or "127.0.0.1" in url:
-            return "https://arenasys.github.io/?" + urllib.parse.urlencode({'endpoint': url, "password": password})
+            return "https://stormstrooper-tk-421.github.io/?" + urllib.parse.urlencode({'endpoint': url, "password": password})
         else:
             return ""
 

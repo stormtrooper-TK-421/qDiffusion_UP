@@ -1,7 +1,7 @@
-import QtQuick
-import QtQuick.Controls
+import QtQuick 2.15
+import QtQuick.Controls 2.15
 
-import gui
+import gui 1.0
 
 import "../style"
 
@@ -10,7 +10,7 @@ Item {
     property var size: Math.max(root.width, root.height) / 4
     property var running
     visible: running
-    property var source: APP_QML_ROOT_URL + "/icons/loading.svg"
+    property var source: "qrc:/icons/loading.svg"
     property var duration: 1000
 
     Image {

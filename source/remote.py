@@ -2,7 +2,7 @@ import queue
 import multiprocessing
 import websockets.sync.client
 import websockets.exceptions
-from bson import BSON
+import bson
 import os
 import traceback
 import datetime
@@ -11,9 +11,9 @@ import math
 import time
 import threading
 
-from PySide6.QtCore import Slot as pyqtSlot, Signal as pyqtSignal, QThread
-from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QImage
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, QThread
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtGui import QImage
 
 import secrets
 from cryptography.hazmat.primitives import hashes
@@ -45,7 +45,7 @@ def get_scheme(password):
     return AESGCM(kdf.derive(password))
 
 def encrypt(scheme, obj):
-    data = BSON.encode(obj)
+    data = bson.dumps(obj)
     if scheme:
         nonce = secrets.token_bytes(16)
         data = nonce + scheme.encrypt(nonce, data, b"")
@@ -54,7 +54,7 @@ def encrypt(scheme, obj):
 def decrypt(scheme, data):
     if scheme:
         data = scheme.decrypt(data[:16], data[16:], b"")
-    obj = BSON(data).decode()
+    obj = bson.loads(data)
     return obj
 
 class RemoteInferenceUpload(QThread):

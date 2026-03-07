@@ -1,10 +1,10 @@
-import QtQuick
-import Qt5Compat.GraphicalEffects
+import QtQuick 2.15
+import QtGraphicalEffects 1.15
 
-import gui
+import gui 1.0
 
-import "../../qml/style"
-import "../../qml/components"
+import "../../style"
+import "../../components"
 
 Item {
     id: thumb

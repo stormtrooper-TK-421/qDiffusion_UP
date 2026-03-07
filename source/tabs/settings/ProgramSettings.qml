@@ -1,13 +1,13 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
-import QtQuick.Layouts
-import Qt.labs.platform
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtGraphicalEffects 1.12
+import QtQuick.Layouts 1.15
+import Qt.labs.platform 1.1
 
-import gui
+import gui 1.0
 
-import "../../qml/style"
-import "../../qml/components"
+import "../../style"
+import "../../components"
 
 Item {
     id: root
@@ -51,7 +51,7 @@ Item {
         
         Item {
             width: parent.width
-            height: SETTINGS.updating || SETTINGS.updateStatusMessage !== "" ? 50 : 30
+            height: SETTINGS.updating ? 50 : 30
             LoadingSpinner {
                 size: 20
                 running: SETTINGS.updating
@@ -59,21 +59,12 @@ Item {
             }
             SText {
                 text: root.tr("Restart required")
-                visible: (!SETTINGS.updating && SETTINGS.needRestart && SETTINGS.updateStatusMessage === "") || scalingChoice.needRestart || modeChoice.needRestart
+                visible: (!SETTINGS.updating && SETTINGS.needRestart) || scalingChoice.needRestart || modeChoice.needRestart
                 anchors.fill: parent
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: Text.AlignHCenter
                 pointSize: 9.0
                 color: COMMON.accent(0)
-            }
-            STextSelectable {
-                text: SETTINGS.updateStatusMessage
-                visible: SETTINGS.updateStatusMessage !== ""
-                anchors.fill: parent
-                verticalAlignment: Text.AlignVCenter
-                horizontalAlignment: Text.AlignHCenter
-                pointSize: 8.8
-                color: COMMON.fg2
             }
         }
 
@@ -108,7 +99,7 @@ Item {
                 anchors.top: parent.top
                 anchors.right: parent.right
                 anchors.margins: 2
-                icon: APP_QML_ROOT_URL + "/icons/folder.svg"
+                icon: "qrc:/icons/folder.svg"
                 border.color: COMMON.bg4
 
                 onPressed: {
@@ -174,7 +165,7 @@ Item {
                 anchors.top: parent.top
                 anchors.right: parent.right
                 anchors.margins: 2
-                icon: APP_QML_ROOT_URL + "/icons/folder.svg"
+                icon: "qrc:/icons/folder.svg"
                 border.color: COMMON.bg4
 
                 onPressed: {

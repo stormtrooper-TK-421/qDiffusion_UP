@@ -1,8 +1,8 @@
-import QtQuick
-import QtQuick.Controls
-import Qt.labs.platform
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import Qt.labs.platform 1.1
 
-import gui
+import gui 1.0
 
 import "../style"
 
@@ -971,7 +971,7 @@ Item {
                 width: parent.width
                 height: width
                 inset: 4
-                icon: root.relative ? APP_QML_ROOT_URL + "/icons/rotate.svg" : APP_QML_ROOT_URL + "/icons/translate.svg"
+                icon: root.relative ? "qrc:/icons/rotate.svg" : "qrc:/icons/translate.svg"
                 tooltip: root.relative ? "Switch to Translation mode (Alt)" : "Switch to Rotation mode (Alt)"
                 color: "transparent"
                 onPressed: {
@@ -983,7 +983,7 @@ Item {
                 width: parent.width
                 height: width
                 inset: 12
-                icon: APP_QML_ROOT_URL + "/icons/save.svg"
+                icon: "qrc:/icons/save.svg"
                 tooltip: "Export pose image"
                 color: "transparent"
                 onPressed: {

@@ -6,12 +6,11 @@ import json
 import difflib
 import numpy as np
 
-from qml_compat import singleton_instance_provider
 from parameters import VariantMap
 from misc import encodeImage
 
-from PySide6.QtCore import Property, Signal, QObject, Slot, QUrl, QPointF, QThread
-from PySide6.QtQml import qmlRegisterSingletonType, qmlRegisterUncreatableType
+from PyQt5.QtCore import pyqtProperty, pyqtSignal, QObject, pyqtSlot, QUrl, QPointF, QThread
+from PyQt5.QtQml import qmlRegisterSingletonType, qmlRegisterUncreatableType
 
 def constant_schedule(current_step, total_steps, warmup):
     warmup_steps = total_steps * warmup
@@ -99,21 +98,21 @@ class DatasetUploader(QThread):
         
         self.trainer._id = self.gui.makeRequest(self.request)
 
-    @Slot()
+    @pyqtSlot()
     def completed(self):
         self.pending -= 1
 
-    @Slot()
+    @pyqtSlot()
     def stop(self):
         self.stopping = True
 
 class Trainer(QObject):
-    updated = Signal()
-    imageChanged = Signal()
-    folderChanged = Signal()
-    foldersChanged = Signal()
-    chartChanged = Signal()
-    statusChanged = Signal()
+    updated = pyqtSignal()
+    imageChanged = pyqtSignal()
+    folderChanged = pyqtSignal()
+    foldersChanged = pyqtSignal()
+    chartChanged = pyqtSignal()
+    statusChanged = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -154,15 +153,15 @@ class Trainer(QObject):
 
         self.reset()
 
-        qmlRegisterSingletonType(Trainer, "gui", 1, 0, "TRAINER", singleton_instance_provider(self))
+        qmlRegisterSingletonType(Trainer, "gui", 1, 0, "TRAINER", lambda qml, js: self)
         self.gui.optionsUpdated.connect(self.optionsUpdated)
         self.gui.response.connect(self.onResponse)
 
-    @Property(VariantMap, notify=updated)
+    @pyqtProperty(VariantMap, notify=updated)
     def parameters(self):
         return self._parameters
     
-    @Slot()
+    @pyqtSlot()
     def reset(self):
         for k, v in self._default.items():
             if not k in self._read_only:
@@ -213,7 +212,7 @@ class Trainer(QObject):
         basic = self.gui.getBasicTab()
         return basic._parameters
     
-    @Slot()
+    @pyqtSlot()
     def optionsUpdated(self):
         available = self.gui._options.get("UNET", [])
         current = self._parameters.get("base_model")
@@ -223,22 +222,22 @@ class Trainer(QObject):
         if available and not current:
             self._parameters.set("base_model", available[0])
 
-    @Slot(str)
+    @pyqtSlot(str)
     def parametersUpdated(self, key):
         if key in {"learning_rate", "learning_schedule", "restarts", "warmup"}:
             self.chartChanged.emit()
 
-    @Property(list, notify=foldersChanged)
+    @pyqtProperty(list, notify=foldersChanged)
     def folders(self):
         return self._folders
     
-    @Slot(str, result=list)
+    @pyqtSlot(str, result=list)
     def images(self, folder):
         if not folder in self._images:
             return []
         return self._images[folder]
     
-    @Property(str, notify=folderChanged)
+    @pyqtProperty(str, notify=folderChanged)
     def currentFolder(self):
         return self._opened_folder
     
@@ -250,13 +249,13 @@ class Trainer(QObject):
         self.folderChanged.emit()
         self.imageChanged.emit()
 
-    @Property(list, notify=folderChanged)
+    @pyqtProperty(list, notify=folderChanged)
     def currentImages(self):
         if not self._opened_folder in self._images:
             return []
         return self._images[self._opened_folder]
     
-    @Property(str, notify=imageChanged)
+    @pyqtProperty(str, notify=imageChanged)
     def currentImage(self):
         if not self._opened_folder in self._opened_images:
             return ""
@@ -269,28 +268,28 @@ class Trainer(QObject):
         self._opened_images[self._opened_folder] = image
         self.imageChanged.emit()
     
-    @Property(int, notify=imageChanged)
+    @pyqtProperty(int, notify=imageChanged)
     def currentImageWidth(self):
         current = self.currentImage 
         if not current in self._sizes:
             return 0
         return self._sizes[current][0]
     
-    @Property(int, notify=imageChanged)
+    @pyqtProperty(int, notify=imageChanged)
     def currentImageHeight(self):
         current = self.currentImage
         if not current in self._sizes:
             return 0
         return self._sizes[current][1]
     
-    @Property(str, notify=imageChanged)
+    @pyqtProperty(str, notify=imageChanged)
     def currentPrompt(self):
         current = self.currentImage
         if not current in self._prompts:
             return ""
         return self._prompts[current]
     
-    @Slot(QUrl)
+    @pyqtSlot(QUrl)
     def addFolder(self, folder):
         if type(folder) == QUrl:
             folder = folder.toLocalFile()
@@ -331,7 +330,7 @@ class Trainer(QObject):
 
         self.foldersChanged.emit()
 
-    @Slot()
+    @pyqtSlot()
     def deleteFolder(self):
         folder = self.currentFolder
         files = self._images[folder]
@@ -364,7 +363,7 @@ class Trainer(QObject):
 
         return config
 
-    @Slot(QUrl)
+    @pyqtSlot(QUrl)
     def saveConfig(self, file):
         file = file.toLocalFile()
         config = self.buildConfig()
@@ -375,7 +374,7 @@ class Trainer(QObject):
         except Exception:
             return
         
-    @Slot(QUrl)
+    @pyqtSlot(QUrl)
     def loadConfig(self, file):
         file = file.toLocalFile()
         config = {}
@@ -427,7 +426,7 @@ class Trainer(QObject):
         return QPointF(x/steps, y)
 
 
-    @Property(list, notify=chartChanged)
+    @pyqtProperty(list, notify=chartChanged)
     def learningRatePoints(self):
         points = []
 
@@ -443,27 +442,27 @@ class Trainer(QObject):
 
         return points
     
-    @Property(str, notify=statusChanged)
+    @pyqtProperty(str, notify=statusChanged)
     def learningRateMax(self):
         return format_float(self._parameters.get("learning_rate"), 5)
     
-    @Property(str, notify=statusChanged)
+    @pyqtProperty(str, notify=statusChanged)
     def learningRateMin(self):
         return format_float(0.0, 5)
     
-    @Property(str, notify=statusChanged)
+    @pyqtProperty(str, notify=statusChanged)
     def learningRateCurrentValue(self):
         if self._lr_current:
             return format_float(self._lr_current.y() * self._parameters.get("learning_rate"), 7)
         return "-"
 
-    @Property(QPointF, notify=statusChanged)
+    @pyqtProperty(QPointF, notify=statusChanged)
     def learningRateCurrentPoint(self):
         if self._lr_current:
             return self._lr_current
         return QPointF(0,0)
     
-    @Slot(float)
+    @pyqtSlot(float)
     def setLearningRateCurrent(self, position):
         schedule = self._parameters.get("learning_schedule")
         restarts = self._parameters.get("restarts")
@@ -489,7 +488,7 @@ class Trainer(QObject):
             return xm, ys or 1, ym
         return 1, 1, 0
 
-    @Property(list, notify=chartChanged)
+    @pyqtProperty(list, notify=chartChanged)
     def lossPoints(self):
         points = []
 
@@ -500,31 +499,31 @@ class Trainer(QObject):
 
         return points
     
-    @Property(str, notify=statusChanged)
+    @pyqtProperty(str, notify=statusChanged)
     def lossMax(self):
         if not self._loss:
             return "-"
         return format_float(max(self._loss), 4)
     
-    @Property(str, notify=statusChanged)
+    @pyqtProperty(str, notify=statusChanged)
     def lossMin(self):
         if not self._loss:
             return "-"
         return format_float(min(self._loss), 4)
     
-    @Property(str, notify=statusChanged)
+    @pyqtProperty(str, notify=statusChanged)
     def lossCurrentValue(self):
         if not self._loss or not self._loss_current_value:
             return "-"
         return format_float(self._loss_current_value, 4)
 
-    @Property(QPointF, notify=statusChanged)
+    @pyqtProperty(QPointF, notify=statusChanged)
     def lossCurrentPoint(self):
         if not self._loss or not self._loss_current_point:
             return QPointF(0,0)
         return self._loss_current_point
     
-    @Slot(float)
+    @pyqtSlot(float)
     def setLossCurrent(self, position):
         if not self._loss:
             return
@@ -548,33 +547,33 @@ class Trainer(QObject):
 
         self.statusChanged.emit()
     
-    @Property(list, notify=statusChanged)
+    @pyqtProperty(list, notify=statusChanged)
     def epochMarks(self):
         return self._epoch_marks
 
-    @Property(float, notify=statusChanged)
+    @pyqtProperty(float, notify=statusChanged)
     def trainingProgress(self):
         if self._stage_label == "Training":
             return self._progress
         return 0.0
     
-    @Property(float, notify=statusChanged)
+    @pyqtProperty(float, notify=statusChanged)
     def progress(self):
         return self._progress
     
-    @Property(str, notify=statusChanged)
+    @pyqtProperty(str, notify=statusChanged)
     def progressLabel(self):
         return self._progress_label
     
-    @Property(str, notify=statusChanged)
+    @pyqtProperty(str, notify=statusChanged)
     def remainingLabel(self):
         return self._remaining_label
     
-    @Property(str, notify=statusChanged)
+    @pyqtProperty(str, notify=statusChanged)
     def stageLabel(self):
         return self._stage_label
 
-    @Slot()
+    @pyqtSlot()
     def train(self):
         self.resetCurrent()
 
@@ -652,7 +651,7 @@ class Trainer(QObject):
         
         self.statusChanged.emit()
 
-    @Slot(int, object)
+    @pyqtSlot(int, object)
     def onResponse(self, id, response):
         type = response.get("type", "")
         data = response.get("data", {})
@@ -680,7 +679,7 @@ class Trainer(QObject):
             if self.uploader:
                 self.uploader.stop()
 
-    @Slot()
+    @pyqtSlot()
     def stop(self):
         if self._id:
             self.gui.makeRequest({"type":"cancel", "data":{"id": self._id}})

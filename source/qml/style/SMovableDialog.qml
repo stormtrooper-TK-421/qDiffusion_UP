@@ -1,8 +1,8 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtGraphicalEffects 1.15
 
-import gui
+import gui 1.0
 
 import "../style"
 import "../components"
@@ -261,7 +261,7 @@ Item {
             id: closeButton
             visible: !dialog.anchored
             color: "transparent"
-            icon: APP_QML_ROOT_URL + "/icons/cross.svg"
+            icon: "qrc:/icons/cross.svg"
             anchors.top: parent.top
             anchors.right: parent.right
             height: 20

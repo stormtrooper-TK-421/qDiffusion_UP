@@ -1,11 +1,11 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
-import Qt.labs.platform
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtGraphicalEffects 1.15
+import Qt.labs.platform 1.1
 
-import gui
-import "../../qml/style"
-import "../../qml/components"
+import gui 1.0
+import "../../style"
+import "../../components"
 
 Item {
     id: root
@@ -182,18 +182,18 @@ Item {
                                 return ""
                             }
                             if(modelObj.fetching) {
-                                return APP_QML_ROOT_URL + "/icons/circle_loading.svg"
+                                return "qrc:/icons/circle_loading.svg"
                             }
                             if(modelObj.ready) {
                                 return ""
                             }
                             if(GUI.statusMode != 2) {
-                                return APP_QML_ROOT_URL + "/icons/warning.svg"
+                                return "qrc:/icons/warning.svg"
                             }
                             if(GUI.statusProgress == -1) {
-                                return APP_QML_ROOT_URL + "/icons/circle_8.svg"
+                                return "qrc:/icons/circle_8.svg"
                             }
-                            return APP_QML_ROOT_URL + "/icons/circle_" + Math.floor(GUI.statusProgress * 8) + ".svg"
+                            return "qrc:/icons/circle_" + Math.floor(GUI.statusProgress * 8) + ".svg"
                         }
                         inset: 4
                         height: 22

@@ -1,7 +1,7 @@
-import QtQuick
-import QtQuick.Controls
+import QtQuick 2.15
+import QtQuick.Controls 2.15
 
-import gui
+import gui 1.0
 
 import "../style"
 
@@ -113,7 +113,7 @@ Item {
                     height: 23
                     width: 23
                     tooltip: root.tr("Inspect")
-                    icon: APP_QML_ROOT_URL + "/icons/search.svg"
+                    icon: "qrc:/icons/search.svg"
                     inset: 8
                     onPressed: {
                         root.inspect()
@@ -130,7 +130,7 @@ Item {
                     height: 23
                     width: 23
                     tooltip: root.tr("Show Negative prompt")
-                    icon: APP_QML_ROOT_URL + "/icons/eye.svg"
+                    icon: "qrc:/icons/eye.svg"
                     onPressed: {
                         promptDivider.offset = area.width/2
                     }
@@ -221,7 +221,7 @@ Item {
                     height: 23
                     width: 23
                     tooltip: root.tr("Hide Negative prompt")
-                    icon: APP_QML_ROOT_URL + "/icons/eye.svg"
+                    icon: "qrc:/icons/eye.svg"
 
                     onPressed: {
                         promptDivider.offset = 5

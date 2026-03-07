@@ -1,16 +1,16 @@
 import os
+import time
 import datetime
 import io
 import PIL.Image
-import PIL.PngImagePlugin
 import random
 import re
 import threading
 import enum
 
-from PySide6.QtCore import Slot, Property, Signal, QObject, Qt, QSize, QRect, QRectF
-from PySide6.QtGui import QImage, QPainter, QColor, QFont, QTextOption
-from PySide6.QtQml import qmlRegisterUncreatableType
+from PyQt5.QtCore import pyqtSlot, pyqtProperty, pyqtSignal, QObject, Qt, QSize, QRect, QRectF, QCoreApplication
+from PyQt5.QtGui import QImage, QPainter, QColor, QFont, QTextOption
+from PyQt5.QtQml import qmlRegisterUncreatableType
 
 import parameters
 from misc import encodeImage, decodeImage, SuggestionManager
@@ -27,7 +27,7 @@ def writeLog(line):
         log.write(line)
 
 class OutputWriterSignals(QObject):
-    done = Signal(str)
+    done = pyqtSignal(str)
 
 class OutputWriter(threading.Thread):
     def __init__(self, img, metadata, folder, file=None):
@@ -82,10 +82,10 @@ class BuilderRunnable(threading.Thread):
         self.done = True
 
 class RequestManager(QObject):
-    updated = Signal()
-    artifact = Signal(int, object, str)
-    result = Signal(int, QImage, object, str)
-    finished = Signal()
+    updated = pyqtSignal()
+    artifact = pyqtSignal(int, object, str)
+    result = pyqtSignal(int, QImage, object, str)
+    finished = pyqtSignal()
 
     def __init__(self, parent=None, modifyRequest=None):
         super().__init__(parent)
@@ -201,7 +201,7 @@ class RequestManager(QObject):
 
         return filename
     
-    @Property(int, notify=updated)
+    @pyqtProperty(int, notify=updated)
     def remaining(self):
         if self.queuing:
             return len(self.requests) + 1
@@ -279,7 +279,10 @@ class RequestManager(QObject):
 
         builder = BuilderRunnable(self, inputs)
         builder.start()
-        builder.join()
+
+        while not builder.done:
+            QCoreApplication.processEvents()
+            time.sleep(1/60)
 
         found, links, controls, segmentation = builder.results
         
@@ -527,7 +530,7 @@ class RequestManager(QObject):
         writer.start()
         return writer.file
 
-    @Slot(str)
+    @pyqtSlot(str)
     def onSave(self, file):
         if file in self.writers:
             del self.writers[file]
@@ -696,10 +699,10 @@ class RequestManager(QObject):
                 self.makeRequest()
 
 class DetailerManager(QObject):
-    updated = Signal()
-    settingsChanged = Signal()
-    openingSettings = Signal(str)
-    closingSettings = Signal(str)
+    updated = pyqtSignal()
+    settingsChanged = pyqtSignal()
+    openingSettings = pyqtSignal(str)
+    closingSettings = pyqtSignal(str)
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -722,14 +725,14 @@ class DetailerManager(QObject):
 
         self._settings[detailer] = parameters.VariantMap(self, settings, strict=True)
 
-    @Slot(str)
+    @pyqtSlot(str)
     def openSettings(self, detailer):
         if detailer in self._settings:
             return
         self.makeSettings(detailer)
         self.openingSettings.emit(detailer)
 
-    @Slot(str)
+    @pyqtSlot(str)
     def closeSettings(self, detailer):
         if not detailer in self._settings:
             return
@@ -737,11 +740,11 @@ class DetailerManager(QObject):
         del self._settings[detailer]
         self.closingSettings.emit(detailer)
 
-    @Slot(str, result=parameters.VariantMap)
+    @pyqtSlot(str, result=parameters.VariantMap)
     def settings(self, detailer):
         return self._settings[detailer]
 
-    @Slot(str)
+    @pyqtSlot(str)
     def saveSettings(self, detailer):
         values = self._settings[detailer]._map
         saved = {k:v for k,v in values.items() if not k in self._client_only and not v == self._default_values[k]}
@@ -765,7 +768,7 @@ class DetailerManager(QObject):
     def settingsName(self, detailer):
         return f"DETAILER-{self.gui.modelName(detailer)}"
     
-    @Property(SuggestionManager, notify=updated)
+    @pyqtProperty(SuggestionManager, notify=updated)
     def suggestions(self):
         return self._suggestions
 

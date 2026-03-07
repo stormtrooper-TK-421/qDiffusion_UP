@@ -1,13 +1,12 @@
-from PySide6.QtCore import Property, Slot, Signal, QObject, QSize, QUrl, QMimeData, QByteArray
-from PySide6.QtQml import qmlRegisterSingletonType, qmlRegisterUncreatableType
-from PySide6.QtGui import QImage, QDrag, QCursor
-from PySide6.QtWidgets import QApplication
-from PySide6.QtSql import QSqlQuery
-from PySide6.QtNetwork import QNetworkRequest, QNetworkReply
+from PyQt5.QtCore import pyqtProperty, pyqtSlot, pyqtSignal, QObject, QSize, QUrl, QMimeData, QByteArray
+from PyQt5.QtQml import qmlRegisterSingletonType, qmlRegisterUncreatableType
+from PyQt5.QtGui import QImage, QDrag, QCursor
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtSql import QSqlQuery
+from PyQt5.QtNetwork import QNetworkRequest, QNetworkReply
 
 import parameters
 import re
-from qml_compat import singleton_instance_provider
 from misc import MimeData, encodeImage
 from canvas.shared import CanvasWrapper
 import sql
@@ -29,13 +28,13 @@ import parameters
 MIME_BASIC_DIVIDER = "application/x-qd-basic-divider"
 
 class Basic(QObject):
-    updated = Signal()
-    managersUpdated = Signal()
-    pastedText = Signal(str)
-    pastedImage = Signal(QImage)
-    openedUpdated = Signal()
-    startBuildModel = Signal()
-    typeUpdated = Signal()
+    updated = pyqtSignal()
+    managersUpdated = pyqtSignal()
+    pastedText = pyqtSignal(str)
+    pastedImage = pyqtSignal(QImage)
+    openedUpdated = pyqtSignal()
+    startBuildModel = pyqtSignal()
+    typeUpdated = pyqtSignal()
     def __init__(self, parent=None):
         super().__init__(parent)
         self.gui = parent
@@ -76,12 +75,12 @@ class Basic(QObject):
         self._manager.artifact.connect(self.onArtifact)
         self._manager.finished.connect(self.onFinished)
 
-        qmlRegisterSingletonType(Basic, "gui", 1, 0, "BASIC", singleton_instance_provider(self))
+        qmlRegisterSingletonType(Basic, "gui", 1, 0, "BASIC", lambda qml, js: self)
         qmlRegisterUncreatableType(Pose, "gui", 1, 0, "Pose", "Not a QML type")
         qmlRegisterUncreatableType(PoseNode, "gui", 1, 0, "PoseNode", "Not a QML type")
         qmlRegisterUncreatableType(PoseEdge, "gui", 1, 0, "PoseEdge", "Not a QML type")
 
-    @Slot()
+    @pyqtSlot()
     def generate(self, user=True):
         if user:
             self._manager.cancelRequest()
@@ -94,18 +93,18 @@ class Basic(QObject):
         self._manager.makeRequest()
         self.updated.emit()
     
-    @Property(bool)
+    @pyqtProperty(bool)
     def isGenerating(self):
         return self.gui.statusMode == 2 or self.gui.statusMode == 5
     
-    @Slot()
+    @pyqtSlot()
     def enqueue(self):
         self._manager.buildRequests(self._parameters, self._inputs, append=True)
         if not self.isGenerating:
             self.generate(user=False)
         self.updated.emit()
 
-    @Slot(int, str)
+    @pyqtSlot(int, str)
     def handleResult(self, id, name):
         self._manager.handleResult(id, name)
 
@@ -116,7 +115,7 @@ class Basic(QObject):
         q.bindValue(":id", id)
         self.conn.doQuery(q)
 
-    @Slot(int, QImage, object, str)
+    @pyqtSlot(int, QImage, object, str)
     def onResult(self, id, image, metadata, filename):
         sticky = self.isSticky()
 
@@ -128,7 +127,7 @@ class Basic(QObject):
         if sticky:
             self.stick(id)
         
-    @Slot(int, object, str)
+    @pyqtSlot(int, object, str)
     def onArtifact(self, id, data, name):
         if name == "annotated":
             match = [i for i in self._inputs if i._id == id]
@@ -152,14 +151,14 @@ class Basic(QObject):
         else:
             self._outputs[id].addArtifact(name, data)
 
-    @Slot()
+    @pyqtSlot()
     def onFinished(self):
         if self._forever or self._manager.requests:
             self.generate(user=False)
         else:
             self._manager.count = 0
 
-    @Slot(int, object)
+    @pyqtSlot(int, object)
     def handleResponse(self, id, response):
         if response["type"] == "hello":
             self._manager.monitoring = False
@@ -171,7 +170,7 @@ class Basic(QObject):
             if id in self._manager.ids and queue > 0:
                 self.gui.setWaiting()
         
-    @Slot(int)
+    @pyqtSlot(int)
     def handleReset(self, id):
         self.clearUnfinished()
 
@@ -182,13 +181,13 @@ class Basic(QObject):
                     self.right()
                 self.deleteOutput(out)
 
-    @Slot()
+    @pyqtSlot()
     def cancel(self):
         if self._manager.cancelRequest():
             self.gui.setCancelling()
         self.updated.emit()
 
-    @Property(bool, notify=updated)
+    @pyqtProperty(bool, notify=updated)
     def forever(self):
         return self._forever
 
@@ -197,47 +196,47 @@ class Basic(QObject):
         self._forever = forever
         self.updated.emit()
 
-    @Property(parameters.Parameters, notify=updated)
+    @pyqtProperty(parameters.Parameters, notify=updated)
     def parameters(self):
         return self._parameters
 
-    @Property(list, notify=updated)
+    @pyqtProperty(list, notify=updated)
     def inputs(self):
         return self._inputs
 
-    @Slot(int, result=BasicOutput)
+    @pyqtSlot(int, result=BasicOutput)
     def outputs(self, id):
         if id in self._outputs:
             return self._outputs[id]
 
-    @Slot()
+    @pyqtSlot()
     def addImage(self):
         self._inputs += [BasicInput(self, QImage(), InputRole.IMAGE)]
         self.updated.emit()
 
-    @Slot()
+    @pyqtSlot()
     def addMask(self):
         self._inputs += [BasicInput(self, QImage(), InputRole.MASK)]
         self.updated.emit()
 
-    @Slot()
+    @pyqtSlot()
     def addSegment(self):
         self._inputs += [BasicInput(self, QImage(), InputRole.SEGMENTATION)]
         self.updated.emit()
 
-    @Slot()
+    @pyqtSlot()
     def addSubprompt(self):
         self._inputs += [BasicInput(self, QImage(), InputRole.SUBPROMPT)]
         self.updated.emit()
 
-    @Slot(str)
+    @pyqtSlot(str)
     def addControl(self, mode):
         i = BasicInput(self, QImage(), InputRole.CONTROL)
         i._control_settings.set("mode", mode)
         self._inputs += [i]
         self.updated.emit()
 
-    @Slot()
+    @pyqtSlot()
     def link(self):
         for i in range(len(self._inputs)):
             curr = self._inputs[i]
@@ -289,13 +288,13 @@ class Basic(QObject):
         self._inputs[destination] = a
         self.updated.emit()
 
-    @Slot(str)
+    @pyqtSlot(str)
     def importImage(self, file):
         source = QImage(file)
         self._inputs.append(BasicInput(self, source, InputRole.IMAGE))
         self.updated.emit()
 
-    @Slot(MimeData, int)
+    @pyqtSlot(MimeData, int)
     def addDrop(self, mimeData, index):
         mimeData = mimeData.mimeData
         if index == -1:
@@ -327,7 +326,7 @@ class Basic(QObject):
                 
         self.updated.emit()
 
-    @Slot(MimeData)
+    @pyqtSlot(MimeData)
     def sizeDrop(self, mimeData):
         mimeData = mimeData.mimeData
         width,height = None,None
@@ -348,7 +347,7 @@ class Basic(QObject):
             self._parameters._values.set("width", width)
             self._parameters._values.set("height", height)
 
-    @Slot(MimeData)
+    @pyqtSlot(MimeData)
     def seedDrop(self, mimeData):
         mimedata = mimeData.mimeData
         for url in mimedata.urls():
@@ -363,7 +362,7 @@ class Basic(QObject):
                     except Exception:
                         pass
             
-    @Slot(int)
+    @pyqtSlot(int)
     def deleteInput(self, index):
         self._inputs.pop(index)
         self.updated.emit()
@@ -373,7 +372,7 @@ class Basic(QObject):
                 index -= 1
             self.open(index, "input")
 
-    @Slot(int)
+    @pyqtSlot(int)
     def deleteOutput(self, id):
         if not id in self._outputs:
             return
@@ -384,7 +383,7 @@ class Basic(QObject):
         q.bindValue(":id", id)
         self.conn.doQuery(q)
    
-    @Slot(int)
+    @pyqtSlot(int)
     def deleteOutputAfter(self, id):
         for i in list(self._outputs.keys()):
             if i < id:
@@ -395,15 +394,15 @@ class Basic(QObject):
         q.bindValue(":idx", id)
         self.conn.doQuery(q)
 
-    @Property(int, notify=openedUpdated)
+    @pyqtProperty(int, notify=openedUpdated)
     def openedIndex(self):
         return self._opened_index
 
-    @Property(str, notify=openedUpdated)
+    @pyqtProperty(str, notify=openedUpdated)
     def openedArea(self):
         return self._opened_area
     
-    @Slot(int, str)
+    @pyqtSlot(int, str)
     def open(self, index, area):
         change = False
         if area == "input" and index < len(self._inputs) and index >= 0:
@@ -415,13 +414,13 @@ class Basic(QObject):
             self._opened_area = area
             self.openedUpdated.emit()
     
-    @Slot()
+    @pyqtSlot()
     def close(self):
         self._opened_index = -1
         self._opened_area = ""
         self.openedUpdated.emit()
 
-    @Slot()
+    @pyqtSlot()
     def delete(self):
         if self._opened_index == -1:
             return
@@ -453,7 +452,7 @@ class Basic(QObject):
             if idx >= 0:
                 self._opened_index = idx
                 self.openedUpdated.emit()
-    @Slot()
+    @pyqtSlot()
     def right(self):
         if self._opened_index == -1:
             return
@@ -471,7 +470,7 @@ class Basic(QObject):
                 self._opened_index = idx
                 self.openedUpdated.emit()
 
-    @Slot()
+    @pyqtSlot()
     def left(self):
         if self._opened_index == -1:
             return
@@ -489,7 +488,7 @@ class Basic(QObject):
                 self._opened_index = idx
                 self.openedUpdated.emit()
 
-    @Slot()
+    @pyqtSlot()
     def stick(self, id=None):
         if self._opened_area == "output":
             if not id:
@@ -498,7 +497,7 @@ class Basic(QObject):
                 self._opened_index = id
                 self.openedUpdated.emit()
 
-    @Slot(int, result=int)
+    @pyqtSlot(int, result=int)
     def outputIDToIndex(self, id):
         outputs = sorted(list(self._outputs.keys()), reverse=True)
         for i, p in enumerate(outputs):
@@ -506,7 +505,7 @@ class Basic(QObject):
                 return i
         return -1
 
-    @Slot(int, result=int)
+    @pyqtSlot(int, result=int)
     def outputIndexToID(self, idx):
         outputs = sorted(list(self._outputs.keys()), reverse=True)
         if idx >= 0 and idx < len(outputs):
@@ -530,16 +529,16 @@ class Basic(QObject):
 
         return False
         
-    @Slot()
+    @pyqtSlot()
     def pasteClipboard(self):
         mimedata = QApplication.clipboard().mimeData()
         self.pasteMimedata(mimedata)
 
-    @Slot(MimeData)
+    @pyqtSlot(MimeData)
     def pasteDrop(self, mimedata):
         self.pasteMimedata(mimedata._mimeData)
 
-    @Slot(str)
+    @pyqtSlot(str)
     def pasteText(self, params):
         self.pastedText.emit(params)
         
@@ -574,7 +573,7 @@ class Basic(QObject):
         self._reply_index = index
         self._reply_id = self.gui.network.download(url.fileName(), url)
 
-    @Slot(misc.DownloadInstance)
+    @pyqtSlot(misc.DownloadInstance)
     def onNetworkReply(self, reply):
         if reply._id != self._reply_id or reply._error != "":
             return
@@ -597,7 +596,7 @@ class Basic(QObject):
         self.updated.emit()
         self._reply_index = None
 
-    @Slot(int, str)
+    @pyqtSlot(int, str)
     def copyItem(self, index, area):
         if area == "input":
             mimeData = QMimeData()
@@ -606,7 +605,7 @@ class Basic(QObject):
         else:
             self.gui.copyFiles([self._outputs[index]._file])
 
-    @Slot(int, str)
+    @pyqtSlot(int, str)
     def pasteItem(self, index, area):
         if area == "input":
             inputs = []
@@ -641,11 +640,11 @@ class Basic(QObject):
 
             self.updated.emit()
 
-    @Slot(list)
+    @pyqtSlot(list)
     def importParameters(self, params):
         self._parameters.importParameters(params)
 
-    @Slot(str)
+    @pyqtSlot(str)
     def buildModel(self, filename):
         unet = self._parameters._values.get("UNET")
         vae = self._parameters._values.get("VAE")
@@ -660,7 +659,7 @@ class Basic(QObject):
 
         self.gui.makeRequest(request)    
 
-    @Slot(CanvasWrapper, BasicInput)
+    @pyqtSlot(CanvasWrapper, BasicInput)
     def setupCanvas(self, wrapper, target):
         canvas = wrapper.canvas
         if target._role in {InputRole.IMAGE, InputRole.CONTROL}:
@@ -682,7 +681,7 @@ class Basic(QObject):
             layerCount = len(self._parameters.subprompts)
             canvas.setupSubprompt(layerCount, target._areas, z)
     
-    @Slot(CanvasWrapper, BasicInput)
+    @pyqtSlot(CanvasWrapper, BasicInput)
     def syncCanvas(self, wrapper, target):
         if target == None:
             return
@@ -704,7 +703,7 @@ class Basic(QObject):
             im = canvas.getDisplay()
             target.setImageData(im)
 
-    @Slot(CanvasWrapper, int, BasicInput)
+    @pyqtSlot(CanvasWrapper, int, BasicInput)
     def syncSubprompt(self, wrapper, active, target):
         canvas = wrapper.canvas
         layerCount = len(self._parameters.subprompts)
@@ -715,7 +714,7 @@ class Basic(QObject):
 
         canvas.syncSubprompt(layerCount, active, areas)
 
-    @Slot(BasicInput)
+    @pyqtSlot(BasicInput)
     def closeSubprompt(self, target):
         layerCount = len(self._parameters.subprompts)
         if len(target._areas) > layerCount:
@@ -732,7 +731,7 @@ class Basic(QObject):
         request = self._parameters.buildAnnotateRequest(annotator, args, encodeImage(img))
         self._manager.makeAnnotationRequest(request, input._id)
 
-    @Slot()
+    @pyqtSlot()
     def dividerDrag(self):
         mimeData = QMimeData()
         mimeData.setData(MIME_BASIC_DIVIDER, QByteArray(f"DIVIDER".encode()))
@@ -740,33 +739,33 @@ class Basic(QObject):
         drag.setMimeData(mimeData)
         drag.exec()
 
-    @Slot(MimeData)
+    @pyqtSlot(MimeData)
     def dividerDrop(self, mimeData):
         mimeData = mimeData.mimeData
         if MIME_BASIC_DIVIDER in mimeData.formats():
             self.gui.config.set("swap", not self.gui.config.get("swap", False))
     
-    @Slot()
+    @pyqtSlot()
     def doBuildModel(self):
         self.startBuildModel.emit()
 
-    @Property(misc.SuggestionManager, notify=managersUpdated)
+    @pyqtProperty(misc.SuggestionManager, notify=managersUpdated)
     def suggestions(self):
         return self._suggestions
     
-    @Property(manager.DetailerManager, notify=managersUpdated)
+    @pyqtProperty(manager.DetailerManager, notify=managersUpdated)
     def detailers(self):
         return self._detailers
 
-    @Property(manager.RequestManager, notify=managersUpdated)
+    @pyqtProperty(manager.RequestManager, notify=managersUpdated)
     def manager(self):
         return self._manager
 
-    @Property(misc.GridManager, notify=managersUpdated)
+    @pyqtProperty(misc.GridManager, notify=managersUpdated)
     def grid(self):
         return self._grid
 
-    @Slot(result=str)
+    @pyqtSlot(result=str)
     def getRequestType(self):
         t = None
         for i in self._inputs:
@@ -794,11 +793,11 @@ class Basic(QObject):
 
         return t
 
-    @Slot()
+    @pyqtSlot()
     def onImageUpdated(self):
         self.typeUpdated.emit()
 
-    @Slot()
+    @pyqtSlot()
     def applyDefaults(self):
         model = self._parameters._values.get("model")
         model_name = self.gui.modelName(model)
@@ -821,7 +820,7 @@ class Basic(QObject):
                     continue
             self._parameters._values.set(k, v)
 
-    @Slot()
+    @pyqtSlot()
     def saveDefaults(self):
         model = self._parameters._values.get("model")
         model_name = self.gui.modelName(model)

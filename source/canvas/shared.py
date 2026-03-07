@@ -1,12 +1,10 @@
-from PySide6.QtCore import Slot as pyqtSlot, Property as pyqtProperty, QPointF, QSize, QObject
-from PySide6.QtGui import QImage
+from PyQt5.QtCore import pyqtSlot, pyqtProperty, QPointF, QSize, QObject
+from PyQt5.QtGui import QImage
 from enum import Enum
 import io
 import numpy as np
 
 import PIL.Image
-
-from qt_buffer_compat import buffer_slice, qimage_bits_to_bytes
 
 class CanvasTool(Enum):
     BRUSH = 1
@@ -55,19 +53,18 @@ def QImagetoPIL(img):
     if img.format() == QImage.Format_Grayscale8:
         size = (img.size().width(), img.size().height())
         total = size[0]*size[1]
-        return PIL.Image.frombytes("L", size, qimage_bits_to_bytes(img, total), "raw", "L")
+        return PIL.Image.frombytes("L", size, img.bits().asarray(total), "raw", "L")
     else:
         img = img.convertToFormat(QImage.Format_RGBA8888)
         size = (img.size().width(), img.size().height())
         total = size[0]*size[1]*4
-        return PIL.Image.frombytes("RGBA", size, qimage_bits_to_bytes(img, total), "raw", "RGBA")
+        return PIL.Image.frombytes("RGBA", size, img.bits().asarray(total), "raw", "RGBA")
 
 def QImagetoCV2(img):
     img = img.convertToFormat(QImage.Format_RGBA8888)
     size = (img.size().width(), img.size().height())
     total = size[0]*size[1]*4
-    buffer = buffer_slice(img.bits(), total)
-    arr = np.frombuffer(buffer, dtype=np.uint8, count=total).copy().reshape(size[1], size[0], 4)
+    arr = np.array(img.bits().asarray(total)).reshape(size[1], size[0], 4)
     return arr
 
 def CV2toQImage(mat):

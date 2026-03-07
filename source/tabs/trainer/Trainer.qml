@@ -1,13 +1,13 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
-import QtQuick.Layouts
-import Qt.labs.platform
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtGraphicalEffects 1.12
+import QtQuick.Layouts 1.15
+import Qt.labs.platform 1.1
 
-import gui
+import gui 1.0
 
-import "../../qml/style"
-import "../../qml/components"
+import "../../style"
+import "../../components"
 
 Rectangle {
     id: root
@@ -629,7 +629,7 @@ Rectangle {
                         height: 23
                         width: 23
                         tooltip: root.tr("Add folder")
-                        icon: APP_QML_ROOT_URL + "/icons/folder.svg"
+                        icon: "qrc:/icons/folder.svg"
                         onPressed: {
                             addFolderDialog.open()
                         }
@@ -683,7 +683,7 @@ Rectangle {
                         width: 23
                         inset: 5
                         tooltip: root.tr("Add folder")
-                        icon: APP_QML_ROOT_URL + "/icons/folder.svg"
+                        icon: "qrc:/icons/folder.svg"
                         onPressed: {
                             addFolderDialog.open()
                         }
@@ -888,7 +888,7 @@ Rectangle {
                         Image {
                             id: placeholderList
                             visible: imageList.model.length == 0
-                            source: APP_QML_ROOT_URL + "/icons/placeholder_black.svg"
+                            source: "qrc:/icons/placeholder_black.svg"
                             height: 30
                             width: height
                             sourceSize: Qt.size(width*1.25, height*1.25)
@@ -1109,7 +1109,7 @@ Rectangle {
                         Image {
                             id: placeholderImage
                             visible: view.sourceWidth == 0
-                            source: APP_QML_ROOT_URL + "/icons/placeholder_black.svg"
+                            source: "qrc:/icons/placeholder_black.svg"
                             height: 50
                             width: height
                             sourceSize: Qt.size(width*1.25, height*1.25)

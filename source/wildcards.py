@@ -1,10 +1,10 @@
-from PySide6.QtCore import Slot, Property, Signal, QObject, QThread, Qt
+from PyQt5.QtCore import pyqtSlot, pyqtProperty, pyqtSignal, QObject, QThread, Qt
 import os, re, glob, time, datetime
 
 import filesystem
 
 class Wildcards(QObject):
-    updated = Signal()
+    updated = pyqtSignal()
     def __init__(self, gui):
         super().__init__(gui)
         self.gui = gui
@@ -13,7 +13,7 @@ class Wildcards(QObject):
         self._counter = {}
         self.reload()
 
-    @Slot()
+    @pyqtSlot()
     def reload(self):
         wildcards = {}
         sources = {}

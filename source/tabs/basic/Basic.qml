@@ -1,14 +1,14 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
-import QtQuick.Layouts
-import QtQuick.Dialogs
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtGraphicalEffects 1.12
+import QtQuick.Layouts 1.15
+import QtQuick.Dialogs 1.0
 
 
-import gui
+import gui 1.0
 
-import "../../qml/style"
-import "../../qml/components"
+import "../../style"
+import "../../components"
 
 Item {
     id: root
@@ -543,7 +543,7 @@ Item {
         Connections {
             target: BASIC.detailers
             function onOpeningSettings(detailer) {
-                var component = Qt.createComponent(APP_QML_ROOT_URL + "/components/DetailerDialog.qml")
+                var component = Qt.createComponent("qrc:/components/DetailerDialog.qml")
                 if(component.status != Component.Ready) {
                     console.log("ERROR", component.errorString())
                 } else {
@@ -670,7 +670,7 @@ Item {
                     height: 23
                     width: 23
                     tooltip: root.tr("Hide Parameters")
-                    icon: APP_QML_ROOT_URL + "/icons/eye.svg"
+                    icon: "qrc:/icons/eye.svg"
                     onPressed: {
                         fullParams.show = false
                     }

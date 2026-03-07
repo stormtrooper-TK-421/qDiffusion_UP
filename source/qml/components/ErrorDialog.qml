@@ -1,7 +1,7 @@
-import QtQuick
-import QtQuick.Controls
+import QtQuick 2.15
+import QtQuick.Controls 2.15
 
-import gui
+import gui 1.0
 
 import "../style"
 import "../components"
@@ -38,7 +38,7 @@ SDialog {
         width: 16
         height: 16
         inset: 0
-        icon: APP_QML_ROOT_URL + "/icons/info-big.svg"
+        icon: "qrc:/icons/info-big.svg"
         tooltip: dialog.tr("Copy trace")
         onPressed: {
             GUI.copyError()

@@ -9,112 +9,30 @@ import traceback
 import datetime
 import subprocess
 import os
+import glob
+import shutil
+import importlib
+import pkg_resources
 import json
 import hashlib
 import argparse
-from qml_compat import singleton_instance_provider
-from pathlib import Path
-
-if os.environ.get("QDIFFUSION_QT_DEBUG", "0") == "1":
-    os.environ.setdefault("QT_DEBUG_PLUGINS", "1")
-    os.environ.setdefault("QML_IMPORT_TRACE", "1")
-
-from importlib.metadata import PackageNotFoundError, version
-
-from runtime_requirements import missing_python_requirements
+import re
 
 import platform
 IS_WIN = platform.system() == 'Windows'
 IS_MAC = platform.system() == 'Darwin'
 
-from PySide6.QtCore import Signal as pyqtSignal, Slot as pyqtSlot, Property as pyqtProperty, QObject, QUrl, QCoreApplication, Qt, QElapsedTimer, QThread, qInstallMessageHandler, QtMsgType
-from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterSingletonType, qmlRegisterType
-from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QIcon, QGuiApplication
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, pyqtProperty, QObject, QUrl, QCoreApplication, Qt, QElapsedTimer, QThread
+from PyQt5.QtQml import QQmlApplicationEngine, qmlRegisterSingletonType, qmlRegisterType
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtGui import QIcon
 
 from translation import Translator
 
 NAME = "qDiffusion"
 LAUNCHER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "qDiffusion.exe")
-APPID = "arenasys.qdiffusion." + hashlib.md5(LAUNCHER.encode("utf-8")).hexdigest()
+APPID = "stormstrooper_tk_421.qdiffusion." + hashlib.md5(LAUNCHER.encode("utf-8")).hexdigest()
 ERRORED = False
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-EXPECTED_VENV = os.path.join(REPO_ROOT, ".venv")
-SCRIPTS_DIR = os.path.join(REPO_ROOT, "scripts")
-if SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, SCRIPTS_DIR)
-
-from env_common import build_env as build_isolated_env
-SOURCE_DIR = os.path.join(REPO_ROOT, "source")
-QML_DIR = os.path.join(SOURCE_DIR, "qml")
-TAB_DIR = os.path.join(SOURCE_DIR, "tabs")
-INFERENCE_SERVER_REQUIREMENTS = os.path.join(REPO_ROOT, "requirements", "inference-server.txt")
-GUI_CORE_REQUIREMENTS = os.path.join(REPO_ROOT, "requirements", "gui.txt")
-
-
-
-def _portable_pyside6_root() -> Path:
-    return Path(EXPECTED_VENV) / "Lib" / "site-packages" / "PySide6"
-
-
-def _portable_qml_import_dir() -> Path | None:
-    pyside6_root = _portable_pyside6_root()
-    for candidate in (pyside6_root / "qml", pyside6_root / "Qt" / "qml"):
-        if candidate.exists():
-            return candidate
-    return None
-
-
-def _repo_file_url(path: Path) -> str:
-    return QUrl.fromLocalFile(str(path.resolve())).toString()
-
-
-def _repo_file_qurl(path: Path) -> QUrl:
-    return QUrl.fromLocalFile(str(path.resolve()))
-
-
-def _qml_file_url(*relative_parts: str) -> str:
-    return _repo_file_url(Path(QML_DIR, *relative_parts))
-
-
-def _qml_file_qurl(*relative_parts: str) -> QUrl:
-    return _repo_file_qurl(Path(QML_DIR, *relative_parts))
-
-
-def _tab_qml_file_url(*relative_parts: str) -> str:
-    return _repo_file_url(Path(TAB_DIR, *relative_parts))
-
-
-def _load_requirements(requirement_path):
-    requirements = []
-    with open(requirement_path, encoding="utf-8") as file:
-        for line in file:
-            requirement = line.split("#", 1)[0].strip()
-            if requirement:
-                requirements.append(requirement)
-    return requirements
-
-
-
-def qt_message_handler(mode, context, message):
-    mode_map = {
-        QtMsgType.QtDebugMsg: "DEBUG",
-        QtMsgType.QtInfoMsg: "INFO",
-        QtMsgType.QtWarningMsg: "WARNING",
-        QtMsgType.QtCriticalMsg: "CRITICAL",
-        QtMsgType.QtFatalMsg: "FATAL",
-    }
-    message_type = mode_map.get(mode, "UNKNOWN")
-    context_file = context.file if context and context.file else "<unknown file>"
-    context_line = context.line if context and context.line else 0
-    context_function = context.function if context and context.function else "<unknown function>"
-    timestamp = datetime.datetime.now().isoformat()
-
-    with open("qt_crash.log", "a", encoding="utf-8") as f:
-        f.write(
-            f"[{timestamp}] [{message_type}] {message} "
-            f"({context_file}:{context_line}, {context_function})\n"
-        )
 
 class Application(QApplication):
     t = QElapsedTimer()
@@ -122,46 +40,149 @@ class Application(QApplication):
     def event(self, e):
         return QApplication.event(self, e)
         
-def check(requirements, enforce_version=True):
-    return missing_python_requirements(requirements, enforce_version)
+def buildQMLRc():
+    qml_path = os.path.join("source", "qml")
+    qml_rc = os.path.join(qml_path, "qml.qrc")
+    if os.path.exists(qml_rc):
+        os.remove(qml_rc)
 
+    items = []
 
-def _windows_hidden_subprocess_kwargs():
-    if not IS_WIN:
-        return {}
-    kwargs = {}
-    creation_flag = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    if creation_flag:
-        kwargs["creationflags"] = creation_flag
-    return kwargs
+    tabs = glob.glob(os.path.join("source", "tabs", "*"))
+    for tab in tabs:
+        for src in glob.glob(os.path.join(tab, "*.*")):
+            if src.split(".")[-1] in {"qml","svg"}:
+                dst = os.path.join(qml_path, os.path.relpath(src, "source"))
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                shutil.copy(src, dst)
+                items += [dst]
 
+    items += glob.glob(os.path.join(qml_path, "*.qml"))
+    items += glob.glob(os.path.join(qml_path, "components", "*.qml"))
+    items += glob.glob(os.path.join(qml_path, "style", "*.qml"))
+    items += glob.glob(os.path.join(qml_path, "fonts", "*.ttf"))
+    items += glob.glob(os.path.join(qml_path, "icons", "*.svg"))
+
+    items = ''.join([f"\t\t<file>{os.path.relpath(f, qml_path )}</file>\n" for f in items])
+
+    contents = f"""<RCC>\n\t<qresource prefix="/">\n{items}\t</qresource>\n</RCC>"""
+
+    with open(qml_rc, "w") as f:
+        f.write(contents)
+
+def buildQMLPy():
+    qml_path = os.path.join("source", "qml")
+    qml_py = os.path.join(qml_path, "qml_rc.py")
+    qml_rc = os.path.join(qml_path, "qml.qrc")
+
+    if os.path.exists(qml_py):
+        os.remove(qml_py)
+    
+    startupinfo = None
+    if IS_WIN:
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+    status = subprocess.run(["pyrcc5", "-o", qml_py, qml_rc], capture_output=True, startupinfo=startupinfo)
+    if status.returncode != 0:
+        raise Exception(status.stderr)
+
+    shutil.rmtree(os.path.join(qml_path, "tabs"))
+    os.remove(qml_rc)
+
+def loadTabs(app, backend):
+    tabs = []
+    for tab in glob.glob(os.path.join("source", "tabs", "*")):
+        tab_name = tab.split(os.path.sep)[-1]
+        if tab_name == "editor":
+            continue
+        tab_name_c = tab_name.capitalize()
+        try:
+            tab_module = importlib.import_module(f"tabs.{tab_name}.{tab_name}")
+            tab_class = getattr(tab_module, tab_name_c)
+            tab_instance = tab_class(parent=app)
+            tab_instance.source = f"qrc:/tabs/{tab_name}/{tab_name_c}.qml"
+            tabs += [tab_instance]
+        except Exception as e:
+            raise e
+            #continue
+    for tab in tabs:
+        if not hasattr(tab, "priority"):
+            tab.priority = len(tabs)
+    
+    tabs.sort(key=lambda tab: tab.priority)
+    backend.registerTabs(tabs)
+
+class Builder(QThread):
+    def __init__(self, app, engine):
+        super().__init__()
+        self.app = app
+        self.engine = engine
+    
+    def run(self):
+        buildQMLRc()
+        buildQMLPy()
+
+def check(dependancies, enforce_version=True):
+    importlib.reload(pkg_resources)
+    needed = []
+    for d in dependancies:
+        try:
+            pkg_resources.require(d)
+        except pkg_resources.DistributionNotFound as e:
+            #print("MISSING", d, e)
+            needed += [d]
+        except pkg_resources.VersionConflict as e:
+            if enforce_version:
+                #print("CONFLICT", d, e)
+                needed += [d]
+        except Exception:
+            pass
+    return needed
+
+def requirement_name(requirement):
+    try:
+        return pkg_resources.Requirement.parse(requirement).project_name.lower()
+    except Exception:
+        head = re.split(r"[<>=!~\s\[]", requirement, 1)[0]
+        return head.strip().lower()
 
 class Installer(QThread):
     output = pyqtSignal(str)
     updated = pyqtSignal()
     installing = pyqtSignal(str)
     installed = pyqtSignal(str)
-    def __init__(self, parent, steps):
+    def __init__(self, parent, packages, mode, nvidia_index, amd_index):
         super().__init__(parent)
-        self.steps = steps
+        self.packages = packages
+        self.mode = mode
+        self.nvidia_index = nvidia_index
+        self.amd_index = amd_index
         self.proc = None
         self.stopping = False
         self.downloading = False
         self.download_progress = 1.0
 
     def run(self):
-        for step in self.steps:
-            self.installing.emit(step["label"])
-            args = [sys.executable.replace("pythonw", "python"), "-m", *step["pip_args"]]
+        for p in self.packages:
+            self.installing.emit(p)
+            pkg = requirement_name(p)
+            args = ["pip", "install", "-U", p]
+            if pkg in {"torch", "torchvision"}:
+                if self.mode == "nvidia":
+                    args = ["pip", "install", "-U", "--pre", p, "--index-url", self.nvidia_index]
+                elif self.mode == "amd" and not IS_WIN:
+                    args = ["pip", "install", "-U", p, "--index-url", self.amd_index]
+            args += ["--progress-bar", "off" if pkg == "pip" else "raw"]
 
-            self.proc = subprocess.Popen(
-                args,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                env=build_isolated_env(),
-                **_windows_hidden_subprocess_kwargs(),
-            )
+            args = [sys.executable.replace("pythonw", "python"), "-m"] + args
+
+            startupinfo = None
+            if IS_WIN:
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+            self.proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=os.environ, startupinfo=startupinfo)
 
             output = ""
             while self.proc.poll() == None:
@@ -183,10 +204,9 @@ class Installer(QThread):
             if self.stopping:
                 return
             if self.proc.returncode:
-                raise RuntimeError("Failed to install: ", step["label"], "\n", output)
-
-            for package in step["report_packages"]:
-                self.installed.emit(package)
+                raise RuntimeError("Failed to install: ", p, "\n", output)
+            
+            self.installed.emit(p)
         self.proc = None
 
     @pyqtSlot()
@@ -209,6 +229,8 @@ class Coordinator(QObject):
         super().__init__(app)
         self.app = app
         self.engine = engine
+        self.builder = Builder(app, engine)
+        self.builder.finished.connect(self.loaded)
         self.installer = None
 
         self._needRestart = False
@@ -220,6 +242,11 @@ class Coordinator(QObject):
         self._mode = 0
         self.in_venv = "VIRTUAL_ENV" in os.environ
 
+        self.venv_cache = None
+        if self.in_venv:
+            self.venv_cache = os.path.join(os.environ["VIRTUAL_ENV"], "cache")
+            if "PIP_CONFIG_FILE" in os.environ and not "PIP_CACHE_DIR" in os.environ:
+                os.environ["PIP_CACHE_DIR"] = self.venv_cache
 
         self.override = False
 
@@ -237,8 +264,15 @@ class Coordinator(QObject):
         except Exception:
             pass
 
-        self.optional: list[str] = []
+        with open(os.path.join("source", "requirements_gui.txt")) as file:
+            self.required = [line.rstrip() for line in file]
+
+        with open(os.path.join("source", "requirements_inference.txt")) as file:
+            self.optional = [line.rstrip() for line in file]
+
         self.find_needed()
+
+        qmlRegisterSingletonType(Coordinator, "gui", 1, 0, "COORDINATOR", lambda qml, js: self)
 
     def find_needed(self):
         self.torch_version = ""
@@ -246,34 +280,32 @@ class Coordinator(QObject):
         self.directml_version = ""
 
         try:
-            self.torch_version = version("torch")
-        except PackageNotFoundError:
+            self.torch_version = str(pkg_resources.get_distribution("torch")).split()[-1]
+        except:
             pass
 
         try:
-            self.torchvision_version = version("torchvision")
-        except PackageNotFoundError:
+            self.torchvision_version = str(pkg_resources.get_distribution("torchvision")).split()[-1]
+        except:
             pass
 
         try:
-            self.directml_version = version("torch-directml")
-        except PackageNotFoundError:
+            self.directml_version = str(pkg_resources.get_distribution("torch-directml")).split()[-1]
+        except:
             pass
 
-        self.amd_torch_directml_version = "0.2.0.dev230426"
+        self.nvidia_torch_index = "https://download.pytorch.org/whl/nightly/cu130"
+        self.nvidia_torch_version = "torch>=2.10.0"
+        self.nvidia_torchvision_version = "torchvision>=0.21.0"
+
+        self.amd_torch_index = "https://download.pytorch.org/whl/test/rocm7.1"
+        self.amd_torch_version = "torch>=2.10.0"
+        self.amd_torchvision_version = "torchvision>=0.21.0"
+
+        self.amd_torch_directml_version = "0.2.5.dev240914"
         
-        self.core = _load_requirements(GUI_CORE_REQUIREMENTS)
-
-        self.optional = _load_requirements(INFERENCE_SERVER_REQUIREMENTS)
+        self.required_need = check(self.required, self.enforce)
         self.optional_need = check(self.optional, self.enforce)
-
-    def _mode_backend_needed(self, mode):
-        backend_needed = []
-        if mode == "amd":
-            if IS_WIN:
-                if not self.directml_version:
-                    backend_needed += ["torch-directml==" + self.amd_torch_directml_version]
-        return backend_needed
     
     @pyqtProperty(list, constant=True)
     def modes(self):
@@ -301,8 +333,9 @@ class Coordinator(QObject):
             json.dump(cfg, f, indent=4)
     
     def clearCache(self):
-        # Installer subprocesses are no-cache; keep compatibility for callers.
-        return
+        # if the cache is ours then clear it
+        if os.environ.get("PIP_CACHE_DIR") == self.venv_cache:
+            shutil.rmtree(self.venv_cache, ignore_errors=True)
 
     @pyqtProperty(bool, notify=updated)
     def enforceVersions(self):
@@ -313,6 +346,18 @@ class Coordinator(QObject):
         self.enforce = enforce
         self.find_needed()
         self.updated.emit()
+
+    def has_nvidia_nightly_torch(self):
+        return ".dev" in self.torch_version and "+cu130" in self.torch_version
+
+    def has_nvidia_nightly_torchvision(self):
+        return ".dev" in self.torchvision_version and "+cu130" in self.torchvision_version
+
+    def has_amd_rocm_torch(self):
+        return "+rocm7.1" in self.torch_version
+
+    def has_amd_rocm_torchvision(self):
+        return "+rocm7.1" in self.torchvision_version
 
     @pyqtProperty(list, notify=updated)
     def packages(self):
@@ -336,44 +381,37 @@ class Coordinator(QObject):
 
     def get_needed(self):
         mode = self._modes[self._mode]
-        backend_needed = self._mode_backend_needed(mode)
-        return [*backend_needed, *self.optional_need]
-
-    def _build_install_steps(self, mode, backend_needed, inference_needed):
-        steps = []
-
-        if backend_needed:
-            backend_args = ["pip", "install", "-U", *backend_needed]
-            backend_args += ["--progress-bar", "raw"]
-            steps.append(
-                {
-                    "label": "backend packages",
-                    "pip_args": backend_args,
-                    "report_packages": list(backend_needed),
-                }
-            )
-
-        if inference_needed:
-            inference_args = ["pip", "install", "-U", "-r", INFERENCE_SERVER_REQUIREMENTS]
+        needed = []
+        if mode == "nvidia":
+            if not self.has_nvidia_nightly_torch():
+                needed += [self.nvidia_torch_version]
+            if not self.has_nvidia_nightly_torchvision():
+                needed += [self.nvidia_torchvision_version]
+            needed += self.optional_need
+        if mode == "amd":
             if IS_WIN:
-                inference_args += ["--only-binary=:all:"]
-            inference_args += ["--progress-bar", "raw"]
-            steps.append(
-                {
-                    "label": "inference requirements",
-                    "pip_args": inference_args,
-                    "report_packages": list(inference_needed),
-                }
-            )
+                if not self.directml_version or pkg_resources.parse_version(self.directml_version) < pkg_resources.parse_version(self.amd_torch_directml_version):
+                    needed += ["torch-directml==" + self.amd_torch_directml_version]
+            else:
+                if not self.has_amd_rocm_torch():
+                    needed += [self.amd_torch_version]
+                if not self.has_amd_rocm_torchvision():
+                    needed += [self.amd_torchvision_version]
+            needed += self.optional_need
 
-        return steps
+        needed += self.required_need
+
+        if needed:
+            needed = ["pip", "wheel"] + needed
+
+        return needed
 
     @pyqtSlot()
     def load(self):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         icon = os.path.join(root, "source", "qml", "icons", "placeholder.svg")
         self.app.setWindowIcon(QIcon(icon))
-        self.loaded()
+        self.builder.start()
 
     @pyqtSlot()
     def loaded(self):
@@ -395,14 +433,11 @@ class Coordinator(QObject):
         if self.installer:
             self.cancel.emit()
             return
-        mode = self._modes[self._mode]
-        backend_needed = self._mode_backend_needed(mode)
-        inference_needed = list(self.optional_need)
-        packages = [*backend_needed, *inference_needed]
+        packages = self.packages
         if not packages:
             self.done()
             return
-        self.installer = Installer(self, self._build_install_steps(mode, backend_needed, inference_needed))
+        self.installer = Installer(self, packages, self._modes[self._mode], self.nvidia_torch_index, self.amd_torch_index)
         self.installer.installed.connect(self.onInstalled)
         self.installer.installing.connect(self.onInstalling)
         self.installer.output.connect(self.onOutput)    
@@ -457,26 +492,18 @@ class Coordinator(QObject):
 
     @pyqtProperty(float, constant=True)
     def scale(self):
-        primary_screen = QGuiApplication.primaryScreen()
-        if not primary_screen:
-            return 1.0
-
-        factor = round(primary_screen.logicalDotsPerInch() * (100/96))
         if IS_WIN:
+            factor = round(self.parent().desktop().logicalDpiX()*(100/96))
             if factor == 125:
                 return 0.82
         if IS_MAC:
+            factor = round(self.parent().desktop().logicalDpiX()*(100/96))
             if factor == 75:
                 return 1.25
         return 1.0
     
 def launch(url):
     import misc
-    import gui
-    import sql
-    import canvas
-    import parameters
-    import manager
 
     if url:
         sgnl = misc.Signaller()
@@ -487,8 +514,9 @@ def launch(url):
     if IS_WIN:
         misc.setAppID(APPID)
     
-    QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_UseDesktopOpenGL, True)
-    QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
+    QCoreApplication.setAttribute(Qt.AA_UseDesktopOpenGL, True)
+    QCoreApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+    QCoreApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 
     scaling = False
     try:
@@ -502,7 +530,6 @@ def launch(url):
         QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 
     app = Application([NAME])
-    qInstallMessageHandler(qt_message_handler)
     signal.signal(signal.SIGINT, lambda sig, frame: app.quit())
     app.startTimer(100)
 
@@ -511,118 +538,47 @@ def launch(url):
     app.endpoint = url
     
     engine = QQmlApplicationEngine()
-    portable_qml_dir = _portable_qml_import_dir()
-    if portable_qml_dir is not None:
-        engine.addImportPath(str(portable_qml_dir))
-    qml_warnings: list = []
-
-    def _capture_qml_warnings(warnings_list):
-        qml_warnings.extend(warnings_list)
-
-    # PySide6 exposes QQmlEngine.warnings as a signal (not a callable method).
-    # Capture warnings via the signal so failures can still be logged when
-    # splash QML fails to instantiate root objects.
-    engine.warnings.connect(_capture_qml_warnings)
     engine.quit.connect(app.quit)
+    
+    translator = Translator(app)
+    coordinator = Coordinator(app, engine)
+
+    engine.load(QUrl('file:source/qml/Splash.qml'))
+
+    if IS_WIN:
+        hwnd = engine.rootObjects()[0].winId()
+        misc.setWindowProperties(hwnd, APPID, NAME, LAUNCHER)
+
+    os._exit(app.exec())
+
+def ready():
+    import qml.qml_rc
+    import misc
+    qmlRegisterSingletonType(QUrl("qrc:/Common.qml"), "gui", 1, 0, "COMMON")
+    misc.registerTypes()
+
+def start(engine, app):
+    import gui
+    import sql
+    import canvas
+    import parameters
+    import manager
 
     sql.registerTypes()
     canvas.registerTypes()
     canvas.registerMiscTypes()
     parameters.registerTypes()
     manager.registerTypes()
-    misc.registerTypes()
 
     backend = gui.GUI(parent=app)
-    app.backend = backend
 
     engine.addImageProvider("sync", backend.thumbnails.sync_provider)
     engine.addImageProvider("async", backend.thumbnails.async_provider)
     engine.addImageProvider("big", backend.thumbnails.big_provider)
 
-    qmlRegisterSingletonType(gui.GUI, "gui", 1, 0, "GUI", singleton_instance_provider(backend))
+    qmlRegisterSingletonType(gui.GUI, "gui", 1, 0, "GUI", lambda qml, js: backend)
     
-    translator = Translator(app)
-    coordinator = Coordinator(app, engine)
-    app.coordinator = coordinator
-    qmlRegisterSingletonType(Coordinator, "gui", 1, 0, "COORDINATOR", singleton_instance_provider(coordinator))
-
-    app_qml_root_url = _repo_file_url(Path(QML_DIR))
-    app_tabs_root_url = _repo_file_url(Path(TAB_DIR))
-    startup_qml_dir_url = app_qml_root_url
-
-    engine.rootContext().setContextProperty("APP_QML_ROOT_URL", app_qml_root_url)
-    engine.rootContext().setContextProperty("APP_TABS_ROOT_URL", app_tabs_root_url)
-    engine.rootContext().setContextProperty("STARTUP_QML_DIR_URL", startup_qml_dir_url)
-    splash_url = _qml_file_qurl("Splash.qml")
-
-    with open("qt_crash.log", "a", encoding="utf-8") as f:
-        f.write(f"[{datetime.datetime.now().isoformat()}] [INFO] Splash startup URL: {splash_url.toString()}\n")
-
-    engine.load(splash_url)
-
-    if not engine.rootObjects():
-        warning_messages = "\n".join(str(warning) for warning in qml_warnings)
-        timestamp = datetime.datetime.now().isoformat()
-        crash_message = (
-            f"GUI {timestamp}\n"
-            "CRITICAL: Failed to load Splash.qml. Engine root objects is empty.\n"
-            f"QML warnings:\n{warning_messages if warning_messages else '<none>'}\n\n"
-        )
-        with open("crash.log", "a", encoding="utf-8") as f:
-            f.write(crash_message)
-        print(crash_message.strip())
-        app.quit()
-        QCoreApplication.exit(-1)
-        return -1
-
-    if IS_WIN:
-        hwnd = engine.rootObjects()[0].winId()
-        misc.setWindowProperties(hwnd, APPID, NAME, LAUNCHER)
-
-    return app.exec()
-
-def ready():
-    qmlRegisterSingletonType(_qml_file_qurl("Common.qml"), "gui", 1, 0, "COMMON")
-
-
-
-
-def loadTabs(gui_backend, parent):
-    from tabs.basic.basic import Basic
-    from tabs.explorer.explorer import Explorer
-    from tabs.gallery.gallery import Gallery
-    from tabs.merger.merger import Merger
-    from tabs.trainer.trainer import Trainer
-    from tabs.settings.settings import Settings
-
-    tabs = [
-        Basic(parent),
-        Explorer(parent),
-        Gallery(parent),
-        Merger(parent),
-        Trainer(parent),
-        Settings(parent),
-    ]
-
-    tab_sources = {
-        "Generate": _tab_qml_file_url("basic", "Basic.qml"),
-        "Models": _tab_qml_file_url("explorer", "Explorer.qml"),
-        "History": _tab_qml_file_url("gallery", "Gallery.qml"),
-        "Merge": _tab_qml_file_url("merger", "Merger.qml"),
-        "Train": _tab_qml_file_url("trainer", "Trainer.qml"),
-        "Settings": _tab_qml_file_url("settings", "Settings.qml"),
-    }
-
-    for tab in tabs:
-        tab.source = tab_sources[tab.name]
-
-    gui_backend.registerTabs(tabs)
-
-def start(engine, app):
-    backend = getattr(app, "backend", None)
-    if backend:
-        loadTabs(backend, app)
-        backend.startBackendAfterStartup()
+    loadTabs(backend, backend)
 
 def exceptHook(exc_type, exc_value, exc_tb):
     global ERRORED
@@ -635,7 +591,9 @@ def exceptHook(exc_type, exc_value, exc_tb):
     if IS_WIN and os.path.exists(LAUNCHER) and not ERRORED:
         ERRORED = True
         message = f"{tb}\nError saved to crash.log"
-        subprocess.run([LAUNCHER, "-e", message], **_windows_hidden_subprocess_kwargs())
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        subprocess.run([LAUNCHER, "-e", message], startupinfo=startupinfo)
 
     QApplication.exit(-1)
 
@@ -653,7 +611,7 @@ def main():
     except Exception:
         pass
     
-    sys.exit(launch(url))
+    launch(url)
 
 if __name__ == "__main__":
     main()

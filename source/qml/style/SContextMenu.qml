@@ -1,8 +1,8 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
+import QtQuick 2.12
+import QtQuick.Controls 2.12
+import QtGraphicalEffects 1.15
 
-import gui
+import gui 1.0
 
 SMenu {
     pointSize: 10.8

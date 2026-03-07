@@ -1,16 +1,16 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
-import QtQuick.Layouts
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtGraphicalEffects 1.12
+import QtQuick.Layouts 1.15
 
-import gui
+import gui 1.0
 
 import "style"
 import "components"
 
 FocusReleaser {
-    property ApplicationWindow window
-    property Image spinner
+    property var window
+    property var spinner
     anchors.fill: parent
     layer.enabled: true
     opacity: 0.0
@@ -27,7 +27,6 @@ FocusReleaser {
     }
     
     Component.onCompleted: {
-        COMMON.effectsEnabled = Qt.application.arguments.indexOf("--no-effects") === -1
         window.title = Qt.binding(function() { return TRANSLATOR.instance.translate(GUI.title, "Title"); })
         opacityAnimator.start()
     }
@@ -97,7 +96,7 @@ FocusReleaser {
         }
 
         function addTab() {
-            var errorTab = Qt.createComponent(APP_QML_ROOT_URL + "/Error.qml")
+            var errorTab = Qt.createComponent("qrc:/Error.qml")
             for(var i = 0; i < GUI.tabSources.length; i++) {
                 var component = Qt.createComponent(GUI.tabSources[i])
                 if(component.status != Component.Ready) {

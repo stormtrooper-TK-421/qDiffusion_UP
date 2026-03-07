@@ -1,17 +1,24 @@
 import random
 import queue
 import json
+import bson
 import datetime
 import copy
 import os
 
-from PySide6.QtCore import Slot, Property, Signal, QObject, QThread, Qt
-from PySide6.QtWidgets import QApplication
+from PyQt5.QtCore import pyqtSlot, pyqtProperty, pyqtSignal, QObject, QThread, Qt
+from PyQt5.QtWidgets import QApplication
 
 import local
 import remote
 import host
 
+HAVE_TORCH = False
+try:
+    import torch
+    HAVE_TORCH = True
+except ImportError as e:
+    pass
 
 def hideBytes(d):
     if type(d) == dict:
@@ -51,10 +58,10 @@ def convert_all_paths(j):
                 convert_all_paths(j[k])
 
 class Backend(QObject):
-    updated = Signal()
-    request = Signal(object)
-    response = Signal(object)
-    stopping = Signal()
+    updated = pyqtSignal()
+    request = pyqtSignal(object)
+    response = pyqtSignal(object)
+    stopping = pyqtSignal()
 
     def __init__(self, gui):
         super().__init__(gui)
@@ -67,7 +74,7 @@ class Backend(QObject):
         self.debugLogging("NEW SESSION", {"endpoint": endpoint})
         self.inference = None
         if endpoint == "":
-            if self.gui.config.get("mode") != "remote":
+            if HAVE_TORCH and self.gui.config.get("mode") != "remote":
                 if self.gui.config.get("host_enabled"):
                     ip = self.gui.config.get("host_address")
                     port = int(self.gui.config.get("host_port"))
@@ -92,7 +99,7 @@ class Backend(QObject):
         self.stopping.connect(self.inference.stop)
         self.inference.start()
 
-    @Slot()
+    @pyqtSlot()
     def stop(self):
         self.stopping.emit()
 
@@ -119,18 +126,18 @@ class Backend(QObject):
             with open("debug.log", "a", encoding='utf-8') as f:
                 f.write(f"{type} {datetime.datetime.now()}\n{j}\n")
 
-    @Slot(object)
+    @pyqtSlot(object)
     def makeRequest(self, request):
         self.debugLogging("REQUEST", request)
         self.request.emit(request)
 
-    @Slot(object)
+    @pyqtSlot(object)
     def onResponse(self, response):
         convert_all_paths(response)
         self.debugLogging("RESPONSE", response)
         self.response.emit(response)
 
-    @Property(str, notify=updated)
+    @pyqtProperty(str, notify=updated)
     def mode(self):
         if self.inference and type(self.inference) == remote.RemoteInference:
             return "Remote"

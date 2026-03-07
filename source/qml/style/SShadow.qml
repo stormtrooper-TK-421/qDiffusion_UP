@@ -1,8 +1,8 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtGraphicalEffects 1.15
 
-import gui
+import gui 1.0
 
 Item {
     id: root
@@ -17,10 +17,9 @@ Item {
         color: root.color
     }
 
-    layer.enabled: COMMON.effectsEnabled
+    layer.enabled: true
     layer.effect: InnerShadow {
         id: innerShadow
-        visible: COMMON.effectsEnabled
         color: root.shadowColor
         samples: root.samples
         radius: root.radius

@@ -1,8 +1,8 @@
-import QtQuick
-import QtQuick.Controls
-import Qt.labs.platform
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import Qt.labs.platform 1.1
 
-import gui
+import gui 1.0
 
 import "../style"
 
@@ -199,13 +199,13 @@ SMenuBar {
         SMenuItem {
             text: root.tr("Open Guide")
             onPressed: {
-                GUI.openLink("https://github.com/stormtrooper-TK-421/qDiffusion_UP/wiki/Guide")
+                GUI.openLink("https://github.com/stormstrooper-tk-421/qDiffusion/wiki/Guide")
             }
         }
         SMenuItem {
             text: root.tr("Report Issue")
             onPressed: {
-                GUI.openLink("https://github.com/stormtrooper-TK-421/qDiffusion_UP/issues/new?assignees=&labels=&projects=&template=bug_report.md&title=")
+                GUI.openLink("https://github.com/stormstrooper-tk-421/qDiffusion/issues/new?assignees=&labels=&projects=&template=bug_report.md&title=")
             }
         }
         SMenuSeparator {}
@@ -241,7 +241,7 @@ SMenuBar {
         SMenuItem {
             text: root.tr("About")
             onPressed: {
-                GUI.openLink("https://github.com/stormtrooper-TK-421/qDiffusion_UP")
+                GUI.openLink("https://github.com/stormstrooper-tk-421/qDiffusion")
             }
         }
     }

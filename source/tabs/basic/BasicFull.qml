@@ -1,11 +1,11 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtGraphicalEffects 1.15
 
-import gui
+import gui 1.0
 
-import "../../qml/style"
-import "../../qml/components"
+import "../../style"
+import "../../components"
 
 Item {
     id: root
@@ -705,7 +705,7 @@ Item {
                     width: 18
                     height: 18
                     inset: 2
-                    icon: APP_QML_ROOT_URL + "/icons/settings.svg"
+                    icon: "qrc:/icons/settings.svg"
                     iconColor: colorColumn.advanced ? COMMON.bg4 : COMMON.bg6
                     iconHoverColor: colorColumn.advanced ? COMMON.fg3 : COMMON.fg0
 

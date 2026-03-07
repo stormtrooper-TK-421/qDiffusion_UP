@@ -1,12 +1,12 @@
-from PySide6.QtCore import Property, Slot, Signal, Qt, QObject, QPointF, QRectF, QMimeData, QSizeF
-from PySide6.QtQuick import QQuickItem, QQuickPaintedItem
-from PySide6.QtGui import QRadialGradient, QColor, QPainter, QPainterPath, QPen, QPolygonF, QImage, QConicalGradient, QRadialGradient
-from PySide6.QtQml import qmlRegisterType
+from PyQt5.QtCore import pyqtProperty, pyqtSlot, pyqtSignal, Qt, QObject, QPointF, QRectF, QMimeData, QSizeF
+from PyQt5.QtQuick import QQuickItem, QQuickPaintedItem
+from PyQt5.QtGui import QRadialGradient, QColor, QPainter, QPainterPath, QPen, QPolygonF, QImage, QConicalGradient, QRadialGradient
+from PyQt5.QtQml import qmlRegisterType
 import time
 
 
 class ColorRadial(QQuickPaintedItem):
-    updated = Signal()
+    updated = pyqtSignal()
     def __init__(self, parent=None):
         super().__init__(parent)
         self._lightness = 1.0
@@ -17,7 +17,7 @@ class ColorRadial(QQuickPaintedItem):
         self.setAntialiasing(True)
         self._painted = False
 
-    @Property(float, notify=updated)
+    @pyqtProperty(float, notify=updated)
     def lightness(self):
         return self._lightness
     
@@ -27,7 +27,7 @@ class ColorRadial(QQuickPaintedItem):
             self._lightness = lightness
             self.update()
 
-    @Property(float, notify=updated)
+    @pyqtProperty(float, notify=updated)
     def angle(self):
         return self._angle
 
@@ -37,7 +37,7 @@ class ColorRadial(QQuickPaintedItem):
             self._angle = angle
             self.update()
 
-    @Property(float, notify=updated)
+    @pyqtProperty(float, notify=updated)
     def radius(self):
         return self._radius
 
@@ -47,7 +47,7 @@ class ColorRadial(QQuickPaintedItem):
             self._radius = radius
             self.update()
 
-    @Property(float, notify=updated)
+    @pyqtProperty(float, notify=updated)
     def alpha(self):
         return self._alpha
 
@@ -57,7 +57,7 @@ class ColorRadial(QQuickPaintedItem):
             self._alpha = alpha
             self.update()
 
-    @Property(float, notify=updated)
+    @pyqtProperty(float, notify=updated)
     def opacity(self):
         # need a duplicate binding spot for QML side
         return self._alpha
@@ -68,7 +68,7 @@ class ColorRadial(QQuickPaintedItem):
             self._alpha = alpha
             self.update()
 
-    @Property(QColor, notify=updated)
+    @pyqtProperty(QColor, notify=updated)
     def color(self):
         return self._color
 
@@ -82,7 +82,7 @@ class ColorRadial(QQuickPaintedItem):
             self._alpha = color.alphaF()
             
             self.update()
-    @Property(str, notify=updated)
+    @pyqtProperty(str, notify=updated)
     def hex(self):
         if self._color.alphaF() == 1.0:
             return self._color.name(QColor.HexRgb)

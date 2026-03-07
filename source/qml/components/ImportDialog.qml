@@ -1,8 +1,8 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtGraphicalEffects 1.15
 
-import gui
+import gui 1.0
 
 import "../style"
 import "../components"
@@ -92,7 +92,7 @@ Dialog {
         }
         SIconButton {
             color: "transparent"
-            icon: APP_QML_ROOT_URL + "/icons/eye.svg"
+            icon: "qrc:/icons/eye.svg"
             tooltip: dialog.raw ? dialog.tr("Show parsed parameters") : dialog.tr("Show raw parameters")
             anchors.top: parent.top
             anchors.right: parent.right
@@ -157,7 +157,7 @@ Dialog {
                         height: 16
                         visible:  modelData.checked
                         anchors.centerIn: parent
-                        source: APP_QML_ROOT_URL + "/icons/tick.svg"
+                        source: "qrc:/icons/tick.svg"
                         sourceSize: Qt.size(parent.width, parent.height)
                     }
 

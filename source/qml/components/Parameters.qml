@@ -1,10 +1,10 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
-import QtQuick.Layouts
-import QtQuick.Dialogs
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtGraphicalEffects 1.12
+import QtQuick.Layouts 1.15
+import QtQuick.Dialogs 1.0
 
-import gui
+import gui 1.0
 
 import "../style"
 
@@ -842,7 +842,7 @@ Item {
                                     anchors.bottom: parent.bottom
                                     anchors.left: parent.left
                                     width: height
-                                    icon: APP_QML_ROOT_URL + "/icons/plus.svg"
+                                    icon: "qrc:/icons/plus.svg"
                                     color: COMMON.bg4
                                     iconColor: COMMON.bg6
 
@@ -1111,7 +1111,7 @@ Item {
                                     anchors.bottom: parent.bottom
                                     anchors.left: parent.left
                                     width: height
-                                    icon: APP_QML_ROOT_URL + "/icons/plus.svg"
+                                    icon: "qrc:/icons/plus.svg"
                                     color: COMMON.bg4
                                     iconColor: COMMON.bg6
 

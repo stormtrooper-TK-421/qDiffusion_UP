@@ -1,12 +1,12 @@
-import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
-import Qt5Compat.GraphicalEffects
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
+import QtGraphicalEffects 1.15
 
-import gui
+import gui 1.0
 
-import "../../qml/style"
-import "../../qml/components"
+import "../../style"
+import "../../components"
 
 Item {
     id: root
@@ -123,7 +123,7 @@ Item {
             Image {
                 id: placeholder
                 visible: !modelCard.desc
-                source: APP_QML_ROOT_URL + "/icons/placeholder_black.svg"
+                source: "qrc:/icons/placeholder_black.svg"
                 height: parent.width/4
                 width: height
                 sourceSize: Qt.size(width*1.25, height*1.25)
@@ -573,7 +573,7 @@ Item {
             anchors.margins: 2
             smooth: false
             inset: 0
-            icon: modelCard.fav ? APP_QML_ROOT_URL + "/icons/star.svg" : APP_QML_ROOT_URL + "/icons/star-outline-big.svg"
+            icon: modelCard.fav ? "qrc:/icons/star.svg" : "qrc:/icons/star-outline-big.svg"
             onPressed: {
                 GUI.toggleFavourite(sql_name)
             }
@@ -636,7 +636,7 @@ Item {
             anchors.margins: 2
             smooth: false
             inset: 0
-            icon: modelCard.showing ? APP_QML_ROOT_URL + "/icons/info-big.svg" : APP_QML_ROOT_URL + "/icons/info-outline-big.svg"
+            icon: modelCard.showing ? "qrc:/icons/info-big.svg" : "qrc:/icons/info-outline-big.svg"
 
             onPressed: {
                 if (modelCard.showing) {

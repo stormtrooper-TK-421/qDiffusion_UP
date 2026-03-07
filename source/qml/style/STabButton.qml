@@ -1,8 +1,8 @@
-import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
 
-import gui
+import gui 1.0
 import "../components"
 
 TabButton {
@@ -71,7 +71,7 @@ TabButton {
                 anchors.margins: -10
                 anchors.topMargin: -9
                 anchors.rightMargin: -4
-                source: APP_QML_ROOT_URL + "/icons/loading_big.svg"
+                source: "qrc:/icons/loading_big.svg"
                 width: height
                 running: control.working
                 duration: 300

@@ -1,7 +1,7 @@
-import QtQuick
-import QtQuick.Controls
+import QtQuick 2.15
+import QtQuick.Controls 2.15
 
-import gui
+import gui 1.0
 
 Rectangle {
     id: root
@@ -89,10 +89,10 @@ Rectangle {
             selectByMouse: true
             persistentSelection: true
             FontLoader {
-                source: APP_QML_ROOT_URL + "/fonts/Cantarell-Regular.ttf"
+                source: "qrc:/fonts/Cantarell-Regular.ttf"
             }
             FontLoader {
-                source: APP_QML_ROOT_URL + "/fonts/SourceCodePro-Regular.ttf"
+                source: "qrc:/fonts/SourceCodePro-Regular.ttf"
             }
 
             property var pointSize: 10.8

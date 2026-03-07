@@ -8,6 +8,51 @@ namespace qDiffusion
         private Label label;
         private ProgressBar progressBar;
 
+        delegate void SetLabelCallback(string value);
+        public void SetLabel(string value)
+        {
+            if (this.label.InvokeRequired)
+            {
+                SetLabelCallback d = new SetLabelCallback(SetLabel);
+                this.Invoke(d, new object[] { value });
+            }
+            else
+            {
+                this.label.Text = value;
+            }
+        }
+
+        delegate void SetProgressCallback(int value);
+
+        public void SetProgress(int value)
+        {
+            if (this.label.InvokeRequired)
+            {
+                SetProgressCallback d = new SetProgressCallback(SetProgress);
+                this.Invoke(d, new object[] { value });
+            }
+            else
+            {
+                this.progressBar.Value = Math.Min(100, value + 1);
+                this.progressBar.Value = value;
+            }
+        }
+
+        delegate void DoCloseCallback();
+
+        public void DoClose()
+        {
+            if (this.label.InvokeRequired)
+            {
+                DoCloseCallback d = new DoCloseCallback(DoClose);
+                this.Invoke(d, new object[] { });
+            }
+            else
+            {
+                this.Close();
+            }
+        }
+
         private System.ComponentModel.IContainer components = null;
 
         protected override void Dispose(bool disposing)
@@ -69,3 +114,4 @@ namespace qDiffusion
         #endregion
     }
 }
+

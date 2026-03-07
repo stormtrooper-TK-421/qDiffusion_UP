@@ -1,8 +1,8 @@
-import QtQuick
-import QtQuick.Controls
-import Qt5Compat.GraphicalEffects
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtGraphicalEffects 1.15
 
-import gui
+import gui 1.0
 
 import "../style"
 import "../components"
@@ -110,7 +110,7 @@ SMovableDialog {
                 color: COMMON.bg2
                 border.width: 1
                 border.color: COMMON.bg4
-                icon: APP_QML_ROOT_URL + "/icons/text_2.svg"
+                icon: "qrc:/icons/text_2.svg"
                 anchors.top: parent.top
                 anchors.right: parent.right
                 anchors.rightMargin: 2
