@@ -2,9 +2,9 @@ import os
 import time
 import pygit2
 
-QDIFF_URL = "https://github.com/stormstrooper-tk-421/qDiffusion"
-INFER_URL = "https://github.com/stormstrooper-tk-421/sd-inference-server"
-TRAIN_URL = "https://github.com/stormstrooper-tk-421/sd-scripts"
+QDIFF_URL = "https://github.com/stormtrooper-TK-421/qDiffusion_UP"
+INFER_URL = "https://github.com/stormtrooper-TK-421/sd-inference-server"
+TRAIN_URL = "https://github.com/stormtrooper-TK-421/sd-scripts"
 
 def git_repair(repo, origin):
     repo.remotes.delete("origin")

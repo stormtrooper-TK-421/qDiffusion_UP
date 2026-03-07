@@ -205,7 +205,7 @@ SMenuBar {
         SMenuItem {
             text: root.tr("Report Issue")
             onPressed: {
-                GUI.openLink("https://github.com/stormstrooper-tk-421/qDiffusion/issues/new?assignees=&labels=&projects=&template=bug_report.md&title=")
+                GUI.openLink("https://github.com/stormtrooper-TK-421/qDiffusion_UP/issues/new?assignees=&labels=&projects=&template=bug_report.md&title=")
             }
         }
         SMenuSeparator {}
@@ -241,7 +241,7 @@ SMenuBar {
         SMenuItem {
             text: root.tr("About")
             onPressed: {
-                GUI.openLink("https://github.com/stormstrooper-tk-421/qDiffusion")
+                GUI.openLink("https://github.com/stormtrooper-TK-421/qDiffusion_UP")
             }
         }
     }

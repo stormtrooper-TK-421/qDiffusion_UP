@@ -22,6 +22,12 @@ import platform
 IS_WIN = platform.system() == 'Windows'
 IS_MAC = platform.system() == 'Darwin'
 
+if IS_WIN:
+    try:
+        import torch  # preload before PyQt on Windows; importing torch after PyQt can trigger WinError 1114 in current PyTorch builds
+    except Exception:
+        pass
+
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, pyqtProperty, QObject, QUrl, QCoreApplication, Qt, QElapsedTimer, QThread
 from PyQt5.QtQml import QQmlApplicationEngine, qmlRegisterSingletonType, qmlRegisterType
 from PyQt5.QtWidgets import QApplication
@@ -146,6 +152,18 @@ def requirement_name(requirement):
     except Exception:
         head = re.split(r"[<>=!~\s\[]", requirement, 1)[0]
         return head.strip().lower()
+
+RESTART_PACKAGES = {"torch", "torchvision", "torch-directml"}
+
+def relaunch_app():
+    args = [sys.executable, os.path.join("source", "launch.py")] + sys.argv[1:]
+    kwargs = {"env": os.environ.copy()}
+    if IS_WIN:
+        kwargs["creationflags"] = 0x00000008 | 0x00000200
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        kwargs["startupinfo"] = startupinfo
+    subprocess.Popen(args, **kwargs)
 
 class Installer(QThread):
     output = pyqtSignal(str)
@@ -480,13 +498,21 @@ class Coordinator(QObject):
         self._installing = ""
         self.installer = None
         self.installedUpdated.emit()
+
+        installed_names = {requirement_name(p) for p in self._installed}
+        requires_restart = IS_WIN and bool(installed_names & RESTART_PACKAGES)
+
         self.find_needed()
         if not self.packages:
+            if requires_restart:
+                relaunch_app()
+                self.app.quit()
+                return
             self.done()
             return
         self.installer = None
         self.installedUpdated.emit()
-        if all([p in self._installed for p in self.packages]):
+        if all([p in self._installed for p in self.packages]) or requires_restart:
             self._needRestart = True
             self.updated.emit()
 

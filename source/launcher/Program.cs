@@ -405,7 +405,7 @@ namespace qDiffusion
 
             try
             {
-                string[] cmd = { python, "source\\main.py" };
+                string[] cmd = { python, "source\\launch.py" };
                 Launch(cmd.Concat(args).ToArray());
             }
             catch (Exception ex)
